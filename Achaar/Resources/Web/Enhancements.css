@@ -1,0 +1,8 @@
+/* Cosmetic only. No feed, composer, dialog or authentication selectors. */
+html[data-achaar-enhanced="true"] { overscroll-behavior-x: none; }
+html[data-achaar-enhanced="true"] body { -webkit-tap-highlight-color: transparent; }
+/* This class is applied only to a bottom navigation whose routes were verified. */
+html[data-achaar-enhanced="true"] .achaar-verified-bottom-navigation { display: none !important; }
+@media (prefers-reduced-motion: reduce) {
+    html[data-achaar-enhanced="true"] { scroll-behavior: auto; }
+}
