@@ -9,6 +9,7 @@
 <key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
 <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
 <key>LSRequiresIPhoneOS</key><true/>
+<key>ITSAppUsesNonExemptEncryption</key><false/>
 <key>NSCameraUsageDescription</key><string>Use your camera when you choose to capture media on Instagram’s website.</string>
 <key>NSMicrophoneUsageDescription</key><string>Use your microphone when an Instagram web feature requests audio capture.</string>
 <key>NSPhotoLibraryUsageDescription</key><string>Select photos or videos when you choose to upload media through Instagram’s website.</string>

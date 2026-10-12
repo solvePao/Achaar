@@ -68,6 +68,8 @@ Start with [the architecture notes](docs/Architecture.md) for changes and [the f
 
 ## Build and verify
 
+Push beta changes to **`testflight`** to trigger the configured Xcode Cloud archive and TestFlight workflow. See [Xcode Cloud instructions](docs/XcodeCloud.md) for commands, tester setup and build diagnostics.
+
 ```sh
 # Compile an unsigned iPhone build.
 xcodebuild -project Achaar.xcodeproj -scheme Achaar \
