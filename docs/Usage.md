@@ -1,0 +1,32 @@
+# Using Achaar
+
+[Back to the project overview](../README.md)
+
+The native icon tabs open Home, Reels, Messages, Search, and Profile. The wrapper’s title/back toolbar is removed; Instagram’s content headers remain. Layout uses device safe areas rather than fixed phone dimensions. Where possible, Achaar clicks Instagram’s existing links to keep its own page navigation working; fixed web routes provide a fallback for the first four tabs. Profile and Activity use recognized web controls. If they cannot be found, Achaar restores the original web interface and explains how to continue there. Web labels can vary by language or account rollout.
+
+Long-press the native Profile button to open the Apple context menu. It offers Activity, Search, visible-post shortcuts (Like/Unlike, Save/Unsave, Comments, Share), inbox shortcuts (Inbox, New message and Requests), profile shortcuts (Saved, Archive and Instagram settings), Back, refresh, sharing, recovery and Achaar Settings. Home also has native plus and Activity buttons mapped to the website. Edit Profile remains available through the original website. Shortcuts click recognized website controls; unavailable controls restore the original interface. Labels currently support English. Compatibility scrolling is enabled by default and disables swipe-back and link previews; use Back in More. The glass bottom bar hides for the keyboard, story viewers, and message conversations, keeping reply controls clear. A More button is available when the original web interface is active.
+
+If WebKit stops, Retry and Safari recovery are available. After two consecutive interrupted launches, Achaar offers recovery before loading the website. An interrupted launch can also be caused by iOS terminating the app; it is not a crash diagnosis. A fatal iOS gesture exception cannot be safely caught within the process. The new UIKit browser removes the prior SwiftUI hosting layer, but real finger scrolling must be confirmed on the phone. Safari has a separate login session.
+
+**Keep Messages ready** retains an inbox web view after its first visit, separate from the main browsing view. Returning to Messages preserves its website state and avoids rebuilding the loaded page. Both use WebKit’s persistent store and ordinary HTTP caching; there is no native message database, speculative inbox download or offline-delivery queue. Inactive media and capture are suspended. Memory pressure, disabling the option and local-session clearing release retained pages. A relaunch still depends on Instagram’s own cache policies and network.
+
+Uploads use WebKit’s standard iOS file-input pickers, matching Safari’s behavior. Camera, microphone, and photo access are requested only when a web feature needs them. Web dialogs use native alerts, and Instagram popup windows share the same website data store. External links open in Safari or an appropriate installed app, with confirmation enabled by default.
+
+Use Instagram’s username/password/2FA login. External sign-in providers open separately, and their Safari session is not transferred into Achaar. Achaar does not copy browser cookies or bypass authentication challenges.
+
+## Customize and protect your session
+
+Settings include appearance, startup tab, navigation haptics, reversible web enhancements, Keep Messages ready and a cached-files cleanup budget. Privacy controls include optional Face ID/device-passcode lock, app-switcher obscuring, external-link confirmation, and separate cache/session clearing.
+
+App lock requires device authentication both to enable and disable it. It locks when the app enters the background; unlocking restores the session. For privacy, enabling app lock also obscures the app-switcher preview. Additional web windows close when the app locks. Media playback and active camera/microphone capture are paused while the app is inactive or locked; previously active capture is resumed only when the session is accessible again.
+
+Tracker blocking is **off by default**. It blocks a small conservative list of third-party Google Analytics and DoubleClick requests. It does not prevent Instagram’s own tracking or remove ads. Changing protection reloads the website and may discard unsaved work. Disable it if something breaks.
+
+**Cached files budget** offers 64 MB–1 GB, or cache cleanup on background. The app measures cache-folder file metadata and checks the budget at launch, background and on demand. Exceeding it removes disposable WebKit caches without reloading the current form. This is a cleanup threshold, not a hard maximum on WebKit’s total storage or memory: public WebKit APIs expose neither a total byte count nor a storage quota. Cookies, IndexedDB and local storage are excluded. **Clear cached files** preserves login cookies and web storage. **Clear local session & sign out** removes website data only from Achaar, clears browser history, and opens Instagram’s login page. Neither operation signs out your other devices; unsaved local drafts may be lost.
+
+
+## Conversation controls
+
+Opening an existing conversation hides the inbox rail and both bottom navigation bars. Use the native glass Back button to return to Messages. Tap the native smile button beside the visible message, or hold that message without moving, to open Instagram’s own reaction picker. Pick an emoji or use its “+” option for more choices. Availability follows Instagram Web; voice/video calls and official-app-only controls are not added when the website does not provide them. Original web interface in Settings restores the unmodified layout.
+
+For the existing-conversation layout/reaction UI test, set `ACHAAR_TEST_THREAD` in the UI test runner environment to the display name of a conversation in your signed-in test account. The test skips when this value is absent; private conversation names are not hard-coded into the repository. It opens controls without sending messages or selecting reactions.
