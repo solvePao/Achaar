@@ -3,6 +3,10 @@ import WebKit
 import AVFoundation
 import Observation
 
+// Use standard WebKit hit testing inside the UIKit browsing screen. Runtime
+// mutation of recognizers during hit testing did not fix the device crash.
+final class InstagramWebView: WKWebView {}
+
 struct WebPopup: Identifiable {
     let id = UUID()
     let webView: WKWebView
@@ -45,9 +49,28 @@ final class BrowserModel: NSObject {
     private var retainedPopup: WKWebView?
     private var pausedCapture: [ObjectIdentifier: (camera: Bool, microphone: Bool)] = [:]
     private var internalBlankNavigation = false
+    private struct WarmPage {
+        let view: WKWebView
+        let tab: InstagramTab
+        let ready: Bool
+        let original: Bool
+        let immersive: Bool
+    }
+    private var mainPage: WarmPage?
+    private var messagesPage: WarmPage?
+    private var usingMessagesPage = false
+    private var checkingCache = false
+    private var pendingWebAction: WebAction?
+    var cacheBytes: Int64 = 0
+    var cacheChecked = false
 
     var selectedTab: InstagramTab
     var isPresentationAllowed = true
+    var isWebInterfaceReady = false
+    var originalNavigationVisible = false
+    var immersivePresentation = false
+    var reelsMuted = UserDefaults.standard.bool(forKey: "reelsMuted")
+    var messageControlsRevision = 0
     var isLoading = false
     var progress = 0.0
     var canGoBack = false
@@ -66,11 +89,11 @@ final class BrowserModel: NSObject {
         configuration.websiteDataStore = dataStore
         configuration.allowsInlineMediaPlayback = true
         configuration.allowsPictureInPictureMediaPlayback = true
-        configuration.mediaTypesRequiringUserActionForPlayback = [.audio]
+        configuration.mediaTypesRequiringUserActionForPlayback = []
         // Use WebKit's genuine mobile user agent. No browser/device spoofing.
         configuration.applicationNameForUserAgent = "Achaar/1.0"
         configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
-        webView = WKWebView(frame: .zero, configuration: configuration)
+        webView = InstagramWebView(frame: .zero, configuration: configuration)
         super.init()
         let content = configuration.userContentController
         content.add(WeakScriptHandler(owner: self), name: "achaar")
@@ -81,13 +104,21 @@ final class BrowserModel: NSObject {
     private func attachWebView() {
         webView.navigationDelegate = self
         webView.uiDelegate = self
-        webView.allowsBackForwardNavigationGestures = true
+        applyScrollingCompatibility(to: webView)
         webView.isInspectable = false
         webView.scrollView.contentInsetAdjustmentBehavior = .never
+        // Avoid UIKit's delayed-touch crash when tapping Instagram's login link
+        // on iOS 27. Deliver taps immediately; scroll cancellation still works.
+        webView.scrollView.delaysContentTouches = false
+        // Scrolling can also hit UIKit's delayed touch-end path on iOS 27.
+        webView.scrollView.panGestureRecognizer.delaysTouchesEnded = false
         webView.setAllMediaPlaybackSuspended(!isPresentationAllowed, completionHandler: nil)
         observations = [
             webView.observe(\.isLoading, options: [.initial, .new]) { [weak self] view, _ in
-                MainActor.assumeIsolated { self?.isLoading = view.isLoading }
+                MainActor.assumeIsolated {
+                    self?.isLoading = view.isLoading
+                    if !view.isLoading { self?.finishPendingAction() }
+                }
             },
             webView.observe(\.estimatedProgress, options: [.initial, .new]) { [weak self] view, _ in
                 MainActor.assumeIsolated { self?.progress = view.estimatedProgress }
@@ -98,6 +129,17 @@ final class BrowserModel: NSObject {
         ]
     }
 
+    private func applyScrollingCompatibility(to view: WKWebView) {
+        view.allowsBackForwardNavigationGestures = !settings.compatibilityScrolling
+        view.allowsLinkPreview = !settings.compatibilityScrolling
+    }
+
+    func updateScrollingCompatibility() {
+        for view in [webView, mainPage?.view, messagesPage?.view, popup?.webView].compactMap({ $0 }) {
+            applyScrollingCompatibility(to: view)
+        }
+    }
+
     private func installScripts(into content: WKUserContentController) {
         guard let jsURL = Bundle.main.url(forResource: "Navigation", withExtension: "js"),
               let cssURL = Bundle.main.url(forResource: "Enhancements", withExtension: "css"),
@@ -106,21 +148,34 @@ final class BrowserModel: NSObject {
               let data = try? JSONEncoder().encode(css), let cssLiteral = String(data: data, encoding: .utf8)
         else { notice = "Web enhancements are unavailable. Instagram’s original interface will remain visible."; return }
         let originGuard = "if (!['instagram.com','www.instagram.com'].includes(location.hostname) || location.protocol !== 'https:') return;"
-        let source = "(() => { \(originGuard) const style = document.createElement('style'); style.id = 'achaar-style'; style.textContent = \(cssLiteral); document.documentElement.appendChild(style); })();\n" +
+        let source = "(() => { \(originGuard) const style = document.createElement('style'); style.id = 'achaar-style'; style.textContent = \(cssLiteral); if (document.documentElement) document.documentElement.appendChild(style); else new MutationObserver((_, observer) => { if (document.documentElement) { document.documentElement.appendChild(style); observer.disconnect(); } }).observe(document, {childList:true}); })();\n" +
             "(() => { \(originGuard) \(js) })();"
-        content.addUserScript(WKUserScript(source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
+        content.addUserScript(WKUserScript(source: source + "\nwindow.AchaarWeb?.setReelsMuted(\(reelsMuted)); window.AchaarWeb?.setEnhanced(\(settings.enhancements));",
+                                          injectionTime: .atDocumentStart, forMainFrameOnly: true))
     }
 
     func start() async {
         guard !hasStarted else { return }
         hasStarted = true
         await updateProtection(reload: false)
+        await maintainCache()
+        usingMessagesPage = settings.keepMessagesReady && selectedTab == .messages
         pendingStartupProfile = selectedTab == .profile
         load(path: selectedTab.path ?? "/")
     }
 
     func select(_ tab: InstagramTab) {
         guard !isClearing else { return }
+        pendingWebAction = nil
+        if settings.keepMessagesReady {
+            if tab == .messages && !usingMessagesPage {
+                switchWarmPage(toMessages: true)
+                if webView.url == nil { load(path: "/direct/inbox/") }
+                return
+            } else if tab != .messages && usingMessagesPage {
+                switchWarmPage(toMessages: false)
+            }
+        }
         navigationRevision += 1
         let previous = selectedTab
         if settings.haptics && previous != tab { UISelectionFeedbackGenerator().selectionChanged() }
@@ -128,17 +183,74 @@ final class BrowserModel: NSObject {
             perform(.profile)
         } else if let path = tab.path {
             selectedTab = tab
-            if webView.url?.path == path {
-                webView.scrollView.setContentOffset(.zero, animated: true)
-                return
-            }
             let revision = navigationRevision
             // Let Instagram's own anchors perform SPA navigation when available.
             // A direct HTTPS route remains the fallback for missing page controls.
             webView.evaluateJavaScript("window.AchaarWeb?.navigate('\(tab.rawValue)') ?? false") { [weak self] result, _ in
                 guard let self, !self.isClearing, self.navigationRevision == revision else { return }
-                if result as? Bool != true { self.load(path: path) }
+                if result as? Bool != true {
+                    if self.webView.url?.path == path {
+                        self.webView.scrollView.setContentOffset(.zero, animated: true)
+                    } else { self.load(path: path) }
+                }
             }
+        }
+    }
+
+    private func switchWarmPage(toMessages: Bool) {
+        let saved = WarmPage(view: webView, tab: selectedTab, ready: isWebInterfaceReady,
+                             original: originalNavigationVisible, immersive: immersivePresentation)
+        let candidate = toMessages ? messagesPage : mainPage
+        let destination = candidate?.ready == true ? candidate : nil
+        if destination == nil { candidate?.view.stopLoading(); candidate?.view.navigationDelegate = nil; candidate?.view.uiDelegate = nil }
+        if usingMessagesPage { messagesPage = saved } else { mainPage = saved }
+        closePopup()
+        cancelDialogs()
+        webView.setAllMediaPlaybackSuspended(true, completionHandler: nil)
+        webView.setCameraCaptureState(.muted, completionHandler: nil)
+        webView.setMicrophoneCaptureState(.muted, completionHandler: nil)
+        observations.removeAll()
+        webView = destination?.view ?? InstagramWebView(frame: .zero, configuration: webView.configuration)
+        usingMessagesPage = toMessages
+        selectedTab = toMessages ? .messages : (destination?.tab ?? .home)
+        isWebInterfaceReady = destination?.ready ?? false
+        originalNavigationVisible = destination?.original ?? false
+        immersivePresentation = destination?.immersive ?? false
+        failure = nil
+        navigationRevision += 1
+        attachWebView()
+        webView.evaluateJavaScript("window.AchaarWeb?.setReelsMuted(\(reelsMuted)); window.AchaarWeb?.setEnhanced(\(settings.enhancements))", completionHandler: nil)
+    }
+
+    func releaseInactivePages() {
+        let inactive = usingMessagesPage ? mainPage?.view : messagesPage?.view
+        inactive?.stopLoading()
+        inactive?.navigationDelegate = nil
+        inactive?.uiDelegate = nil
+        if usingMessagesPage { mainPage = nil } else { messagesPage = nil }
+    }
+
+    func updateWarmMessagesPreference() {
+        if !settings.keepMessagesReady {
+            releaseInactivePages()
+            mainPage = nil
+            messagesPage = nil
+            usingMessagesPage = false
+        }
+    }
+
+    func maintainCache(forceTrim: Bool = false) async {
+        guard !checkingCache, !isClearing else { return }
+        checkingCache = true
+        defer { checkingCache = false }
+        guard let directory = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else { return }
+        cacheBytes = await Task.detached(priority: .utility) { CacheBudget.bytes(in: directory) }.value
+        cacheChecked = true
+        if forceTrim || CacheBudget.shouldTrim(bytes: cacheBytes, budgetMB: settings.cacheBudgetMB) {
+            // Clear only disposable caches. Do not reload an active composer or
+            // erase cookies, IndexedDB, local storage, or conversation content.
+            await WebsiteDataCleaner.clear(in: webView.configuration.websiteDataStore, includeSession: false)
+            cacheBytes = await Task.detached(priority: .utility) { CacheBudget.bytes(in: directory) }.value
         }
     }
 
@@ -150,26 +262,63 @@ final class BrowserModel: NSObject {
 
     func refresh() {
         guard !isClearing else { return }
+        pendingWebAction = nil
         navigationRevision += 1
         failure = nil
         if webView.url == nil { load(path: "/") } else { webView.reload() }
     }
 
     func goBack() {
-        if !isClearing { navigationRevision += 1; webView.goBack() }
+        if !isClearing { pendingWebAction = nil; navigationRevision += 1; webView.goBack() }
     }
 
     func perform(_ action: WebAction) {
         guard !isClearing else { return }
+        if action == .inbox {
+            select(.messages)
+            if webView.url?.path != "/direct/inbox/", webView.url?.path != "/direct/" { load(path: "/direct/inbox/") }
+            return
+        }
+        if [.newMessage, .requests].contains(action), selectedTab != .messages { select(.messages) }
+        if [.newMessage, .requests].contains(action), !isWebInterfaceReady || isLoading {
+            pendingWebAction = action
+            return
+        }
+        if [.profile, .saved, .archive, .editProfile, .accountSettings].contains(action), usingMessagesPage {
+            switchWarmPage(toMessages: false)
+        }
         navigationRevision += 1
         let revision = navigationRevision
         guard InstagramRouting.isInstagram(webView.url) else { revealOriginalNavigation(); return }
-        webView.evaluateJavaScript("window.AchaarWeb?.action('\(action.rawValue)') ?? false") { [weak self] result, _ in
+        if [.profile, .create, .activity, .search, .like, .save, .comments, .sharePost].contains(action) {
+            webView.evaluateJavaScript("window.AchaarWeb?.action('\(action.rawValue)') ?? false") { [weak self] value, _ in
+                guard let self, !self.isClearing, self.navigationRevision == revision else { return }
+                if value as? Bool == true {
+                    if action == .profile { self.selectedTab = .profile }
+                } else { self.revealOriginalNavigation() }
+            }
+            return
+        }
+        webView.callAsyncJavaScript("""
+            for (let attempt = 0; attempt < 40; attempt++) {
+                if (window.AchaarWeb?.action(action)) return true;
+                if (attempt === 0 || attempt === 10) window.AchaarWeb?.prepareAction(action);
+                await new Promise(resolve => setTimeout(resolve, 150));
+            }
+            return false;
+            """, arguments: ["action": action.rawValue], in: nil, in: .page) { [weak self] result in
             guard let self, !self.isClearing, self.navigationRevision == revision else { return }
-            if result as? Bool == true {
+            if case .success(let value) = result, value as? Bool == true {
                 if action == .profile { self.selectedTab = .profile }
             } else { self.revealOriginalNavigation() }
         }
+    }
+
+    private func finishPendingAction() {
+        guard !isClearing, !isLoading, isWebInterfaceReady, selectedTab == .messages,
+              let action = pendingWebAction else { return }
+        pendingWebAction = nil
+        perform(action)
     }
 
     private func revealOriginalNavigation() {
@@ -179,6 +328,9 @@ final class BrowserModel: NSObject {
     }
 
     func updateEnhancements() {
+        // Apply the preference before first paint on subsequent full-page loads.
+        webView.configuration.userContentController.removeAllUserScripts()
+        installScripts(into: webView.configuration.userContentController)
         let script = "window.AchaarWeb?.setEnhanced(\(settings.enhancements ? "true" : "false"))"
         webView.evaluateJavaScript(script, completionHandler: nil)
         popup?.webView.evaluateJavaScript("window.AchaarWeb?.setEnhanced(false)", completionHandler: nil)
@@ -203,15 +355,25 @@ final class BrowserModel: NSObject {
               InstagramRouting.allowsBridge(host: origin.host, scheme: origin.protocol,
                                              port: origin.port, mainFrame: message.frameInfo.isMainFrame),
               let body = message.body as? [String: Any], body.count == 2,
-              body["type"] as? String == "tab", let value = body["value"] as? String,
-              let tab = InstagramTab(rawValue: value), tab != .profile else { return }
-        selectedTab = tab
-        tryStartupProfile()
+              let type = body["type"] as? String, let value = body["value"] as? String else { return }
+        if type == "navigation", ["native", "original", "immersive"].contains(value) {
+            originalNavigationVisible = value == "original"
+            immersivePresentation = value == "immersive"
+            isWebInterfaceReady = true
+            tryStartupProfile()
+            finishPendingAction()
+        } else if type == "messageControls", value == "changed" {
+            messageControlsRevision += 1
+        } else if type == "tab", let tab = InstagramTab(rawValue: value) {
+            selectedTab = tab
+            tryStartupProfile()
+        }
     }
 
     private func tryStartupProfile() {
-        guard pendingStartupProfile, selectedTab == .home else { return }
+        guard pendingStartupProfile, selectedTab == .home, isWebInterfaceReady else { return }
         pendingStartupProfile = false
+        pendingWebAction = nil
         perform(.profile)
     }
 
@@ -220,6 +382,11 @@ final class BrowserModel: NSObject {
         isClearing = true
         navigationRevision += 1
         pendingStartupProfile = false
+        pendingWebAction = nil
+        releaseInactivePages()
+        mainPage = nil
+        messagesPage = nil
+        usingMessagesPage = false
         defer { isClearing = false }
         webView.stopLoading()
         closePopup()
@@ -238,7 +405,7 @@ final class BrowserModel: NSObject {
             webView.navigationDelegate = nil
             webView.uiDelegate = nil
             observations.removeAll()
-            webView = WKWebView(frame: .zero, configuration: configuration)
+            webView = InstagramWebView(frame: .zero, configuration: configuration)
             attachWebView()
         } else {
             await webView.setAllMediaPlaybackSuspended(!isPresentationAllowed)
@@ -248,6 +415,12 @@ final class BrowserModel: NSObject {
         internalBlankNavigation = false
         isClearing = false
         if reload { load(path: includeSession ? "/accounts/login/" : "/") }
+    }
+
+    func toggleReelSound() {
+        reelsMuted.toggle()
+        UserDefaults.standard.set(reelsMuted, forKey: "reelsMuted")
+        webView.evaluateJavaScript("window.AchaarWeb?.setReelsMuted(\(reelsMuted))", completionHandler: nil)
     }
 
     func suspendMedia(_ suspended: Bool) {
@@ -274,6 +447,7 @@ final class BrowserModel: NSObject {
     }
 
     func prepareForLock() {
+        pendingWebAction = nil
         closePopup()
         externalRequest = nil
         externalDestination = nil
@@ -325,6 +499,14 @@ final class BrowserModel: NSObject {
 }
 
 extension BrowserModel: WKNavigationDelegate {
+    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        if webView === self.webView {
+            isWebInterfaceReady = false
+            originalNavigationVisible = false
+            immersivePresentation = false
+        }
+    }
+
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
                  decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void) {
         guard let url = navigationAction.request.url else { decisionHandler(.cancel); return }
@@ -348,10 +530,20 @@ extension BrowserModel: WKNavigationDelegate {
         internalBlankNavigation = false
         if webView === self.webView {
             failure = nil
-            if let path = webView.url?.path, let tab = InstagramRouting.tab(for: path) { selectedTab = tab }
             updateEnhancements()
+            webView.evaluateJavaScript("Boolean(window.AchaarWeb)") { [weak self, weak webView] result, _ in
+                guard let self, webView === self.webView, result as? Bool != true else { return }
+                // The script reports Instagram SPA routes. A delayed WebKit
+                // navigation completion can still reference the previous URL;
+                // use URL routing only when the adapter is unavailable.
+                if let path = webView?.url?.path, let tab = InstagramRouting.tab(for: path) { self.selectedTab = tab }
+                self.originalNavigationVisible = true
+                self.isWebInterfaceReady = true
+            }
             tryStartupProfile()
-        } else { webView.evaluateJavaScript("window.AchaarWeb?.setEnhanced(false)", completionHandler: nil) }
+        } else if webView !== mainPage?.view && webView !== messagesPage?.view {
+            webView.evaluateJavaScript("window.AchaarWeb?.setEnhanced(false)", completionHandler: nil)
+        }
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
@@ -368,6 +560,8 @@ extension BrowserModel: WKNavigationDelegate {
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
         guard !isClearing else { return }
         if webView === self.webView { failure = "The web session stopped responding. Tap Retry to reload it." }
+        else if webView === mainPage?.view { mainPage = nil }
+        else if webView === messagesPage?.view { messagesPage = nil }
         else { notice = "The additional Instagram window stopped responding. Close it and try again." }
     }
 }
@@ -381,10 +575,13 @@ extension BrowserModel: WKUIDelegate {
         }
         guard popup == nil else { notice = "Close the current Instagram window before opening another."; return nil }
         configuration.websiteDataStore = self.webView.configuration.websiteDataStore
-        let child = WKWebView(frame: .zero, configuration: configuration)
+        let child = InstagramWebView(frame: .zero, configuration: configuration)
         child.navigationDelegate = self
         child.uiDelegate = self
-        child.allowsBackForwardNavigationGestures = true
+        applyScrollingCompatibility(to: child)
+        // Popups need the same immediate touch delivery as the primary view.
+        child.scrollView.delaysContentTouches = false
+        child.scrollView.panGestureRecognizer.delaysTouchesEnded = false
         if configuration.userContentController !== self.webView.configuration.userContentController,
            let list = protection.activeRuleList { configuration.userContentController.add(list) }
         retainedPopup = child

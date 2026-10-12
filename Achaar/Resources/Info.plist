@@ -13,7 +13,14 @@
 <key>NSMicrophoneUsageDescription</key><string>Use your microphone when an Instagram web feature requests audio capture.</string>
 <key>NSPhotoLibraryUsageDescription</key><string>Select photos or videos when you choose to upload media through Instagram’s website.</string>
 <key>NSFaceIDUsageDescription</key><string>Protect your Instagram session with Achaar’s optional app lock.</string>
-<key>UILaunchScreen</key><dict/>
-<key>UIApplicationSceneManifest</key><dict><key>UIApplicationSupportsMultipleScenes</key><false/></dict>
+<key>UILaunchStoryboardName</key><string>LaunchScreen</string>
+<key>UIApplicationSceneManifest</key><dict>
+<key>UIApplicationSupportsMultipleScenes</key><false/>
+<key>UISceneConfigurations</key><dict><key>UIWindowSceneSessionRoleApplication</key><array><dict>
+<key>UISceneConfigurationName</key><string>Default Configuration</string>
+<key>UISceneClassName</key><string>UIWindowScene</string>
+<key>UISceneDelegateClassName</key><string>$(PRODUCT_MODULE_NAME).AchaarSceneDelegate</string>
+</dict></array></dict>
+</dict>
 <key>UISupportedInterfaceOrientations</key><array><string>UIInterfaceOrientationPortrait</string><string>UIInterfaceOrientationLandscapeLeft</string><string>UIInterfaceOrientationLandscapeRight</string></array>
 </dict></plist>

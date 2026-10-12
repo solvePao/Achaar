@@ -1,85 +1,50 @@
-import SwiftUI
+import UIKit
 
+// The browsing surface has a UIKit root: no SwiftUI hosting recognizers sit
+// above WebKit's scrolling view. SwiftUI remains confined to Settings sheets.
 @main
-struct AchaarApp: App {
-    @State private var settings: AppSettings
-    @State private var browser: BrowserModel
-    @State private var appLock: AppLock
-    @Environment(\.scenePhase) private var scenePhase
-    private let privacyShield: PrivacyShield
+@MainActor
+final class AchaarApp: UIResponder, UIApplicationDelegate {
+    let settings = AppSettings()
+    lazy var browser = BrowserModel(settings: settings)
+    lazy var appLock = AppLock(enabled: settings.appLock)
+    private var privacyShield: PrivacyShield?
 
-    init() {
-        let settings = AppSettings()
+    func application(_ application: UIApplication,
+                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        // A SwiftUI-created session can survive an app update. Rebind its
+        // delegate without deleting the website store or signing the user out.
+        for session in application.openSessions {
+            session.configuration.delegateClass = AchaarSceneDelegate.self
+        }
         privacyShield = PrivacyShield(settings: settings)
-        _settings = State(initialValue: settings)
-        _browser = State(initialValue: BrowserModel(settings: settings))
-        _appLock = State(initialValue: AppLock(enabled: settings.appLock))
+        return true
     }
 
-    var body: some Scene {
-        WindowGroup {
-            ZStack {
-                BrowserScreen(browser: browser, settings: settings, appLock: appLock)
-                    .allowsHitTesting(!settings.appLock || appLock.isUnlocked)
-                    .accessibilityHidden(settings.appLock && !appLock.isUnlocked)
-                if settings.appLock && !appLock.isUnlocked {
-                    lockScreen
-                }
-                if scenePhase != .active && (settings.obscureAppSwitcher || settings.appLock) {
-                    privacyCover
-                }
-            }
-            .preferredColorScheme(settings.appearance.colorScheme)
-            .task {
-                if settings.appLock && !appLock.isUnlocked { _ = await appLock.authenticate() }
-                if !settings.appLock || appLock.isUnlocked { await browser.start() }
-            }
-            .onChange(of: settings.enhancements) { _, _ in browser.updateEnhancements() }
-            .onChange(of: settings.blockTrackers) { _, _ in Task { await browser.updateProtection() } }
-            .onChange(of: appLock.isUnlocked) { _, unlocked in
-                browser.suspendMedia(scenePhase != .active || (settings.appLock && !unlocked))
-                if unlocked { Task { await browser.start() } }
-            }
-            .onChange(of: scenePhase) { _, phase in
-                if phase == .background {
-                    appLock.lock(enabled: settings.appLock)
-                    if settings.appLock { browser.prepareForLock() }
-                }
-                browser.suspendMedia(phase != .active || (settings.appLock && !appLock.isUnlocked))
-            }
-        }
+    func application(_ application: UIApplication, configurationForConnecting session: UISceneSession,
+                     options: UIScene.ConnectionOptions) -> UISceneConfiguration {
+        let configuration = UISceneConfiguration(name: "Default Configuration", sessionRole: session.role)
+        configuration.delegateClass = AchaarSceneDelegate.self
+        return configuration
+    }
+}
+
+@MainActor
+final class AchaarSceneDelegate: UIResponder, UIWindowSceneDelegate {
+    var window: UIWindow?
+    private var screen: BrowserViewController?
+
+    func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options: UIScene.ConnectionOptions) {
+        guard let scene = scene as? UIWindowScene, let app = UIApplication.shared.delegate as? AchaarApp else { return }
+        let controller = BrowserViewController(browser: app.browser, settings: app.settings, appLock: app.appLock)
+        let window = UIWindow(windowScene: scene)
+        window.rootViewController = controller
+        self.window = window
+        screen = controller
+        window.makeKeyAndVisible()
     }
 
-    private var lockScreen: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "lock.shield").font(.system(size: 48)).foregroundStyle(.tint)
-            Text("Achaar is locked").font(.title2.bold())
-            Text("Unlock to return to your Instagram session.").foregroundStyle(.secondary)
-            Button("Unlock", systemImage: "faceid") {
-                Task {
-                    if await appLock.authenticate() {
-                        browser.suspendMedia(scenePhase != .active)
-                        await browser.start()
-                    }
-                }
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(appLock.isAuthenticating)
-            if let error = appLock.error { Text(error).font(.footnote).foregroundStyle(.secondary) }
-        }
-        .padding(32)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(.background)
-    }
-
-    private var privacyCover: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "leaf.fill").font(.largeTitle).foregroundStyle(.tint)
-            Text("Achaar").font(.title.bold())
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(.background)
-        .ignoresSafeArea()
-        .accessibilityLabel("Achaar privacy screen")
-    }
+    func sceneDidBecomeActive(_ scene: UIScene) { screen?.activate() }
+    func sceneWillResignActive(_ scene: UIScene) { screen?.deactivate() }
+    func sceneDidEnterBackground(_ scene: UIScene) { screen?.enterBackground() }
 }

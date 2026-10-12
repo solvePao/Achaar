@@ -1,8 +1,242 @@
-/* Cosmetic only. No feed, composer, dialog or authentication selectors. */
-html[data-achaar-enhanced="true"] { overscroll-behavior-x: none; }
+/* Scoped layout enhancements preserve Instagram’s real content and controls. */
+html[data-achaar-enhanced="true"] {
+    overscroll-behavior-x: none;
+    -webkit-text-size-adjust: 100%;
+}
 html[data-achaar-enhanced="true"] body { -webkit-tap-highlight-color: transparent; }
 /* This class is applied only to a bottom navigation whose routes were verified. */
-html[data-achaar-enhanced="true"] .achaar-verified-bottom-navigation { display: none !important; }
+html[data-achaar-enhanced="true"] .achaar-verified-bottom-navigation,
+html[data-achaar-enhanced="true"] .achaar-verified-bottom-navigation * {
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+html[data-achaar-enhanced="true"] .achaar-navigation-popover,
+html[data-achaar-enhanced="true"] .achaar-navigation-popover * {
+    visibility: visible !important;
+    pointer-events: auto !important;
+    color: CanvasText !important;
+}
+html[data-achaar-enhanced="true"] .achaar-navigation-popover svg { fill: CanvasText !important; }
+/* The menu's ancestor was hidden with the strip, including its backdrop. */
+html[data-achaar-enhanced="true"] .achaar-navigation-popover {
+    background: Canvas !important;
+    color: CanvasText !important;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgb(0 0 0 / 25%);
+}
 @media (prefers-reduced-motion: reduce) {
     html[data-achaar-enhanced="true"] { scroll-behavior: auto; }
+}
+
+/* Reference palette and type use Instagram's existing theme tokens. All
+   overrides are scoped to enhancements, so Original web interface undoes them. */
+html[data-achaar-enhanced="true"] body {
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+    html[data-achaar-enhanced="true"] {
+        --ig-primary-background: 11, 16, 20;
+        --ig-secondary-background: 17, 22, 27;
+        --ig-primary-text: 245, 245, 245;
+        --ig-secondary-text: 153, 161, 169;
+        background-color: #0b1014;
+    }
+    html[data-achaar-enhanced="true"] body { background-color: #0b1014; }
+}
+html[data-achaar-enhanced="true"][data-achaar-page="profile"] .achaar-profile-stats {
+    display: flex !important;
+    gap: 16px !important;
+    flex-wrap: nowrap !important;
+    padding-inline: 0 !important;
+    min-width: 0;
+}
+html[data-achaar-enhanced="true"][data-achaar-page="profile"] .achaar-profile-stats > * {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    margin-inline: 0 !important;
+    font-size: 14px !important;
+    white-space: nowrap !important;
+}
+html[data-achaar-enhanced="true"][data-achaar-page="profile"] .achaar-profile-stats a {
+    white-space: nowrap !important;
+}
+html[data-achaar-enhanced="true"][data-achaar-page="messages"] .achaar-inbox-row {
+    min-height: 72px;
+    padding-block: 8px;
+    padding-inline: 16px;
+    box-sizing: border-box;
+    font-size: 14px;
+}
+html[data-achaar-enhanced="true"][data-achaar-page="messages"] .achaar-inbox-row img {
+    width: 56px !important;
+    height: 56px !important;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+html[data-achaar-enhanced="true"] .achaar-home-header { position: relative; }
+html[data-achaar-enhanced="true"] .achaar-home-header h1 {
+    position: absolute !important; left: 50% !important; top: 16px;
+    transform: translateX(-50%); width: auto !important; margin: 0 !important;
+}
+html[data-achaar-enhanced="true"] .achaar-home-header :is(input, [role="searchbox"]) { display: none !important; }
+html[data-achaar-enhanced="true"] .achaar-home-header :has(> input) { display: none !important; }
+html[data-achaar-enhanced="true"][data-achaar-page="profile"] .achaar-profile-stats * {
+    white-space: nowrap !important; overflow-wrap: normal !important;
+    word-break: normal !important; width: auto !important;
+}
+html[data-achaar-enhanced="true"] .achaar-profile-header { position: relative; }
+html[data-achaar-enhanced="true"] .achaar-profile-hero {
+    gap: 12px !important; align-items: center !important; min-height: 128px;
+    padding-inline: 16px !important;
+}
+html[data-achaar-enhanced="true"] .achaar-profile-hero > section:first-child {
+    width: 96px !important; flex: 0 0 96px !important; margin-inline: 0 !important;
+    height: 128px !important;
+}
+html[data-achaar-enhanced="true"] .achaar-profile-hero > section:first-child :is(div, span) {
+    height: auto !important; min-height: 0 !important; max-width: 96px !important;
+}
+html[data-achaar-enhanced="true"] .achaar-profile-hero > section:last-child {
+    flex: 1 1 0 !important; min-width: 0 !important; margin: 0 !important; padding: 0 !important;
+}
+html[data-achaar-enhanced="true"] .achaar-profile-handle { display: none !important; }
+html[data-achaar-enhanced="true"] .achaar-profile-name {
+    position: absolute !important; left: 124px; top: 20px;
+    max-width: calc(100% - 140px); white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+}
+html[data-achaar-enhanced="true"][data-achaar-inbox="true"] .achaar-inbox-list {
+    width: var(--achaar-visible-width) !important; flex: 0 0 var(--achaar-visible-width) !important;
+    min-width: 0 !important; max-width: var(--achaar-visible-width) !important;
+    border-inline: none !important;
+}
+html[data-achaar-enhanced="true"][data-achaar-inbox="true"] .achaar-inbox-empty { display: none !important; }
+html[data-achaar-enhanced="true"][data-achaar-inbox="true"] [role="dialog"] {
+    max-width: calc(var(--achaar-visible-width) - 32px) !important;
+}
+
+html[data-achaar-enhanced="true"] .achaar-home-search { display: none !important; }
+html[data-achaar-enhanced="true"] .achaar-home-header h1 { width: 120px !important; }
+html[data-achaar-enhanced="true"] .achaar-home-header svg[aria-label="Instagram"] { width: 120px; height: 30px; }
+
+html[data-achaar-enhanced="true"] .achaar-native-header-action { display: none !important; }
+html[data-achaar-enhanced="true"] .achaar-verified-desktop-navigation { display: none !important; }
+
+html[data-achaar-enhanced="true"] .achaar-profile-name-container { position: static !important; }
+html[data-achaar-enhanced="true"] .achaar-profile-hero > section:first-child img {
+    width: 88px !important; height: 88px !important; object-fit: cover;
+}
+html[data-achaar-enhanced="true"] .achaar-profile-hero > section:first-child canvas {
+    width: 100px !important; height: 100px !important;
+}
+
+/* Scoped gutter corrections leave unrecognized dialogs and pages untouched. */
+html[data-achaar-enhanced="true"]:is([data-achaar-inbox="true"], [data-achaar-page="explore"]) .achaar-mobile-alignment {
+    margin-left: 0 !important; padding-left: 0 !important;
+    width: var(--achaar-visible-width) !important; max-width: var(--achaar-visible-width) !important;
+    min-width: 0 !important; box-sizing: border-box;
+}
+html[data-achaar-enhanced="true"][data-achaar-inbox="true"] .achaar-inbox-columns {
+    width: var(--achaar-visible-width) !important; min-width: 0 !important;
+}
+html[data-achaar-enhanced="true"]:not([data-achaar-page="story"]) .achaar-inbox-list {
+    scroll-padding-bottom: 88px;
+}
+
+/* These classes require a single video and a separate Like/Comment/Save rail.
+   Reuse the live website controls rather than rebuilding post content. */
+html[data-achaar-enhanced="true"][data-achaar-page="reels"] .achaar-reel-frame,
+html[data-achaar-enhanced="true"][data-achaar-page="reels"] .achaar-reel-card {
+    width: var(--achaar-visible-width) !important; max-width: var(--achaar-visible-width) !important;
+    height: var(--achaar-reel-height) !important; min-height: var(--achaar-reel-height) !important;
+    margin: 0 !important; padding: 0 !important; box-sizing: border-box;
+}
+html[data-achaar-enhanced="true"][data-achaar-page="reels"] .achaar-reel-card { position: relative !important; }
+html[data-achaar-enhanced="true"][data-achaar-page="reels"] .achaar-reel-media {
+    width: 100% !important; max-width: none !important;
+    height: 100% !important; min-height: 0 !important; flex: 1 1 auto !important;
+    border: 0 !important; border-radius: 0 !important;
+}
+html[data-achaar-enhanced="true"][data-achaar-page="reels"] video.achaar-reel-media {
+    object-fit: contain !important; background: #000;
+}
+html[data-achaar-enhanced="true"][data-achaar-page="reels"] .achaar-reel-actions {
+    position: absolute !important; right: 8px !important; bottom: 24px !important;
+    width: 48px !important; height: auto !important; max-height: calc(100% - 72px);
+    margin: 0 !important; z-index: 5; color: #fff;
+    filter: drop-shadow(0 1px 2px rgb(0 0 0 / 65%));
+}
+html[data-achaar-enhanced="true"][data-achaar-page="reels"] .achaar-reel-author {
+    white-space: nowrap !important; overflow: hidden; text-overflow: ellipsis;
+    word-break: normal !important; min-width: 0 !important; max-width: 240px !important;
+}
+html[data-achaar-enhanced="true"][data-achaar-page="reels"] .achaar-reel-author-row {
+    display: flex !important; flex-wrap: nowrap !important; gap: 8px;
+    width: calc(var(--achaar-visible-width) - 96px) !important; min-width: 0 !important;
+}
+
+html[data-achaar-enhanced="true"][data-achaar-conversation="true"] .achaar-conversation-sidebar { display: none !important; }
+html[data-achaar-enhanced="true"][data-achaar-conversation="true"] :is(.achaar-conversation-pane, .achaar-conversation-columns) {
+    width: var(--achaar-visible-width) !important; max-width: var(--achaar-visible-width) !important;
+    min-width: 0 !important; flex: 1 1 auto !important; margin-inline: 0 !important; border-inline: 0 !important;
+}
+html[data-achaar-enhanced="true"][data-achaar-conversation="true"] .achaar-mobile-alignment {
+    margin-left: 0 !important; padding-left: 0 !important; min-width: 0 !important;
+}
+html[data-achaar-enhanced="true"][data-achaar-conversation="true"] .achaar-conversation-header {
+    padding-left: 64px !important; min-height: 56px; box-sizing: border-box;
+}
+
+/* Real message action controls become discoverable on a touch screen. */
+html[data-achaar-enhanced="true"][data-achaar-conversation="true"] :is(.achaar-message-actions, .achaar-message-actions-visible) {
+    opacity: 1 !important; visibility: visible !important; pointer-events: auto !important;
+}
+html[data-achaar-enhanced="true"][data-achaar-conversation="true"] .achaar-message-actions {
+    display: flex !important; gap: 4px; width: auto !important; min-width: 104px;
+}
+html[data-achaar-enhanced="true"][data-achaar-conversation="true"] .achaar-message-actions > div {
+    display: flex !important; gap: 4px; width: auto !important;
+}
+html[data-achaar-enhanced="true"][data-achaar-conversation="true"] .achaar-message-actions [role="button"] {
+    width: 32px !important; height: 32px !important; min-width: 32px;
+    padding: 8px !important; box-sizing: border-box; border-radius: 50%; background: rgba(var(--ig-secondary-background, 32, 37, 42), 0.95);
+}
+
+html[data-achaar-enhanced="true"][data-achaar-conversation="true"] .achaar-verified-bottom-navigation {
+    display: none !important;
+}
+html[data-achaar-enhanced="true"][data-achaar-conversation="true"] .achaar-conversation-columns {
+    height: var(--achaar-visible-height, 100dvh) !important;
+}
+html[data-achaar-enhanced="true"][data-achaar-conversation="true"] .achaar-conversation-pane { height: 100% !important; }
+html[data-achaar-enhanced="true"][data-achaar-conversation="true"] .achaar-conversation-header {
+    height: 64px !important; min-height: 64px !important; max-height: 64px !important;
+    padding-block: 8px !important; flex-shrink: 0 !important;
+}
+
+html[data-achaar-enhanced="true"][data-achaar-conversation="true"] .achaar-conversation-composer {
+    position: fixed !important; left: 12px !important; bottom: 8px !important;
+    translate: 0 var(--achaar-composer-shift, 0px) !important;
+    height: 60px !important; min-height: 60px !important; overflow: visible !important;
+    display: flex !important; align-items: center !important;
+    width: calc(var(--achaar-visible-width) - 24px) !important; max-width: calc(var(--achaar-visible-width) - 24px) !important;
+    box-sizing: border-box; z-index: 10; background: rgba(var(--ig-secondary-background, 17, 22, 27), 0.98);
+}
+
+html[data-achaar-enhanced="true"][data-achaar-conversation="true"] .achaar-conversation-viewport {
+    height: var(--achaar-visible-height, 100dvh) !important; min-height: 0 !important;
+}
+
+html[data-achaar-enhanced="true"][data-achaar-conversation="true"] .achaar-conversation-composer-container {
+    overflow: visible !important; contain: none !important;
+}
+
+html[data-achaar-enhanced="true"][data-achaar-conversation="true"] .achaar-conversation-composer-content {
+    flex: 1 1 0 !important; width: 100% !important; min-width: 0 !important; max-width: none !important;
+    box-sizing: border-box !important;
+}
+
+html[data-achaar-enhanced="true"][data-achaar-conversation="true"] .achaar-conversation-composer [role="textbox"] {
+    width: 100% !important; min-width: 100px !important; font-size: 16px;
 }

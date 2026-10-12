@@ -3,13 +3,14 @@ import Foundation
 enum InstagramTab: String, CaseIterable, Identifiable {
     case home, explore, reels, messages, profile
     var id: String { rawValue }
-    var title: String { rawValue.capitalized }
+    static let displayOrder: [InstagramTab] = [.home, .reels, .messages, .explore, .profile]
+    var title: String { self == .explore ? "Search" : rawValue.capitalized }
     var symbol: String {
         switch self {
         case .home: "house"
         case .explore: "magnifyingglass"
         case .reels: "play.rectangle"
-        case .messages: "bubble.left.and.bubble.right"
+        case .messages: "paperplane"
         case .profile: "person.crop.circle"
         }
     }
@@ -24,7 +25,48 @@ enum InstagramTab: String, CaseIterable, Identifiable {
     }
 }
 
-enum WebAction: String { case profile, create, activity }
+enum WebAction: String, CaseIterable, Identifiable {
+    case profile, create, activity, search, inbox, newMessage, requests, saved, archive, editProfile, accountSettings, like, save, comments, sharePost
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .inbox: "Inbox"
+        case .like: "Like / unlike visible post"
+        case .save: "Save / unsave visible post"
+        case .comments: "Comments on visible post"
+        case .sharePost: "Share visible post"
+        case .profile: "Your profile"
+        case .create: "Create"
+        case .activity: "Activity"
+        case .search: "Search"
+        case .newMessage: "New message"
+        case .requests: "Message requests"
+        case .saved: "Saved"
+        case .archive: "Archive"
+        case .editProfile: "Edit profile"
+        case .accountSettings: "Instagram settings"
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .inbox: "tray"
+        case .like: "heart"
+        case .save: "bookmark"
+        case .comments: "bubble"
+        case .sharePost: "paperplane"
+        case .profile: "person.crop.circle"
+        case .create: "plus.app"
+        case .activity: "heart"
+        case .search: "magnifyingglass"
+        case .newMessage: "square.and.pencil"
+        case .requests: "tray"
+        case .saved: "bookmark"
+        case .archive: "clock.arrow.circlepath"
+        case .editProfile: "person.crop.circle.badge.pencil"
+        case .accountSettings: "gearshape"
+        }
+    }
+}
 
 enum InstagramRouting {
     static let home = URL(string: "https://www.instagram.com/")!
@@ -50,8 +92,9 @@ enum InstagramRouting {
 
     static func shareURL(_ url: URL?) -> URL? {
         guard isInstagram(url), let url,
-              !["accounts", "challenge", "checkpoint", "oauth", "direct"].contains(
-                url.path.split(separator: "/").first.map(String.init) ?? "") else { return nil }
+              !["accounts", "challenge", "checkpoint", "oauth", "direct", "notifications", "activity", "archive", "create"].contains(
+                url.path.split(separator: "/").first.map(String.init) ?? ""),
+              !url.path.split(separator: "/").contains("saved") else { return nil }
         var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
         components?.query = nil
         components?.fragment = nil

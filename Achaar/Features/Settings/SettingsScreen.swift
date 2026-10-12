@@ -5,6 +5,7 @@ struct SettingsScreen: View {
     @Bindable var browser: BrowserModel
     @Bindable var appLock: AppLock
     @Environment(\.dismiss) private var dismiss
+    var onDone: (() -> Void)? = nil
     @State private var clearingSession = false
     @State private var clearingCache = false
     @State private var authenticating = false
@@ -21,9 +22,25 @@ struct SettingsScreen: View {
                         ForEach(InstagramTab.allCases) { Text($0.title).tag($0) }
                     }
                     Toggle("Navigation haptics", isOn: $settings.haptics)
+                    Toggle("Compatibility scrolling", isOn: $settings.compatibilityScrolling)
                     Toggle("Web enhancements", isOn: $settings.enhancements)
+                        .accessibilityIdentifier("settings.enhancements")
                 } header: { Text("Appearance & navigation") } footer: {
-                    Text("Enhancements adjust the website and hide duplicate bottom navigation only when it is recognized. Switch off to restore Instagram’s original interface.")
+                    Text("Compatibility scrolling disables link previews and swipe-back gestures; use Back in the menu. Enhancements hide duplicate navigation only when recognized. Switch off to restore the website.")
+                }
+                Section {
+                    Toggle("Keep Messages ready", isOn: $settings.keepMessagesReady)
+                        .accessibilityIdentifier("settings.warmMessages")
+                    Picker("Cached files budget", selection: $settings.cacheBudgetMB) {
+                        ForEach(AppSettings.cacheBudgets, id: \.self) { budget in
+                            Text(budget == 0 ? "Clear on next background" : "\(budget) MB").tag(budget)
+                        }
+                    }
+                    LabeledContent("Observed cached files", value: browser.cacheChecked
+                        ? ByteCountFormatter.string(fromByteCount: browser.cacheBytes, countStyle: .file) : "Checking…")
+                    Button("Check & trim cache now") { Task { await browser.maintainCache() } }
+                } header: { Text("Performance & cache") } footer: {
+                    Text("Keep Messages loaded for faster switching; uses extra memory. Instagram controls message refresh and offline access. The cache budget is checked at launch and in the background. It is a cleanup threshold, not a hard limit on total website storage. Your login is kept.")
                 }
                 Section {
                     Toggle("Face ID / passcode lock", isOn: Binding(
@@ -64,7 +81,8 @@ struct SettingsScreen: View {
             }
             .disabled(browser.isClearing)
             .navigationTitle("Settings")
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+            .task { await browser.maintainCache() }
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { if let onDone { onDone() } else { dismiss() } } } }
             .confirmationDialog("Clear all local Instagram data?", isPresented: $clearingSession, titleVisibility: .visible) {
                 Button("Clear session", role: .destructive) {
                     Task { await browser.clearWebsiteData(includeSession: true) }

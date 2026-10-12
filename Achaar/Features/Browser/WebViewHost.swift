@@ -2,41 +2,6 @@ import SwiftUI
 import WebKit
 import SafariServices
 
-struct WebViewHost: UIViewRepresentable {
-    let webView: WKWebView
-    func makeUIView(context: Context) -> WKWebView { webView }
-    func updateUIView(_ uiView: WKWebView, context: Context) {}
-}
-
-struct NativeTabBar: UIViewRepresentable {
-    var selection: InstagramTab
-    var onSelect: (InstagramTab) -> Void
-    func makeCoordinator() -> Coordinator { Coordinator(onSelect: onSelect) }
-    func makeUIView(context: Context) -> UITabBar {
-        let bar = UITabBar()
-        bar.delegate = context.coordinator
-        bar.items = InstagramTab.allCases.enumerated().map { index, tab in
-            let item = UITabBarItem(title: tab.title, image: UIImage(systemName: tab.symbol), tag: index)
-            item.accessibilityIdentifier = "tab.\(tab.rawValue)"
-            return item
-        }
-        bar.tintColor = .tintColor
-        return bar
-    }
-    func updateUIView(_ bar: UITabBar, context: Context) {
-        context.coordinator.onSelect = onSelect
-        if let index = InstagramTab.allCases.firstIndex(of: selection) { bar.selectedItem = bar.items?[index] }
-    }
-    final class Coordinator: NSObject, UITabBarDelegate {
-        var onSelect: (InstagramTab) -> Void
-        init(onSelect: @escaping (InstagramTab) -> Void) { self.onSelect = onSelect }
-        func tabBar(_ tabBar: UITabBar, didSelect item: UITabBarItem) {
-            guard InstagramTab.allCases.indices.contains(item.tag) else { return }
-            onSelect(InstagramTab.allCases[item.tag])
-        }
-    }
-}
-
 struct BrowserPresentationState: Equatable {
     let dialogID: UUID?
     let externalID: UUID?

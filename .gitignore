@@ -1,5 +1,41 @@
+# macOS metadata
 .DS_Store
+.AppleDouble
+._*
+
+# Xcode build output and local UI state
 build/
 DerivedData/
 *.xcuserstate
 xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+*.xcresult/
+*.xcarchive/
+*.app/
+*.ipa
+*.dSYM/
+*.dSYM.zip
+
+# Swift Package Manager generated output (keep Package.resolved)
+.build/
+.swiftpm/
+
+# Local logs, captures and temporary files
+*.log
+*.tmp
+*.swp
+*.swo
+*~
+
+# Local configuration and signing secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.p12
+*.p8
+*.key
+*.pem
+*.mobileprovision
+*.provisionprofile

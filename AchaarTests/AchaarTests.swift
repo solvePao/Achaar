@@ -5,6 +5,35 @@ import WebKit
 #endif
 
 final class AchaarTests: XCTestCase {
+    @MainActor func testUsageResetsAtThreeAMAndSurvivesRelaunch() {
+        let name = "usage.tests." + UUID().uuidString
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        var calendar = Calendar(identifier: .gregorian); calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let start = calendar.date(from: DateComponents(year: 2026, month: 10, day: 12, hour: 2, minute: 59, second: 50))!
+        let tracker = UsageTracker(defaults: defaults, calendar: calendar)
+        tracker.begin(at: start); tracker.record(at: start.addingTimeInterval(20))
+        XCTAssertEqual(tracker.seconds(at: start.addingTimeInterval(20)), 10)
+        tracker.end(at: start.addingTimeInterval(30))
+        XCTAssertEqual(tracker.seconds(at: start.addingTimeInterval(30)), 20)
+        let reloaded = UsageTracker(defaults: defaults, calendar: calendar)
+        XCTAssertEqual(reloaded.seconds(at: start.addingTimeInterval(3600)), 20)
+        XCTAssertEqual(reloaded.seconds(at: start.addingTimeInterval(86420)), 0)
+    }
+    @MainActor func testUsageDoesNotCountInactiveTimeOrResumeCrashedInterval() {
+        let name = "usage.tests." + UUID().uuidString
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        let start = Date(timeIntervalSince1970: 1800000000)
+        let tracker = UsageTracker(defaults: defaults)
+        tracker.begin(at: start); tracker.record(at: start.addingTimeInterval(5))
+        let relaunched = UsageTracker(defaults: defaults)
+        relaunched.begin(at: start.addingTimeInterval(100)); relaunched.end(at: start.addingTimeInterval(110))
+        XCTAssertEqual(relaunched.seconds(at: start.addingTimeInterval(200)), 15)
+        relaunched.record(at: start.addingTimeInterval(300))
+        XCTAssertEqual(relaunched.seconds(at: start.addingTimeInterval(300)), 15)
+    }
+
     func testOnlySecureInstagramOriginsAreEmbedded() {
         for value in ["https://instagram.com/", "https://www.instagram.com/direct/inbox/", "https://accountscenter.instagram.com/"] {
             XCTAssertTrue(InstagramRouting.isInstagram(URL(string: value)), value)
@@ -47,6 +76,9 @@ final class AchaarTests: XCTestCase {
     func testShareURLsExcludePrivateRoutesAndQueryStrings() {
         XCTAssertNil(InstagramRouting.shareURL(URL(string: "https://www.instagram.com/accounts/login/?token=private")))
         XCTAssertNil(InstagramRouting.shareURL(URL(string: "https://www.instagram.com/direct/t/123/")))
+        XCTAssertNil(InstagramRouting.shareURL(URL(string: "https://www.instagram.com/fixture_username/saved/")))
+        XCTAssertNil(InstagramRouting.shareURL(URL(string: "https://www.instagram.com/archive/stories/")))
+        XCTAssertNil(InstagramRouting.shareURL(URL(string: "https://www.instagram.com/notifications/")))
         XCTAssertNil(InstagramRouting.shareURL(URL(string: "https://example.com/")))
         XCTAssertEqual(InstagramRouting.shareURL(URL(string: "https://www.instagram.com/p/fixture/?tracking=1#fragment"))?.absoluteString,
                        "https://www.instagram.com/p/fixture/")
@@ -66,11 +98,44 @@ final class AchaarTests: XCTestCase {
         first.startupTab = .messages
         first.enhancements = false
         first.blockTrackers = true
+        first.compatibilityScrolling = false
+        first.keepMessagesReady = false
+        first.cacheBudgetMB = 128
         let second = AppSettings(defaults: defaults)
         XCTAssertEqual(second.appearance, .dark)
         XCTAssertEqual(second.startupTab, .messages)
         XCTAssertFalse(second.enhancements)
         XCTAssertTrue(second.blockTrackers)
+        XCTAssertFalse(second.compatibilityScrolling)
+        XCTAssertFalse(second.keepMessagesReady)
+        XCTAssertEqual(second.cacheBudgetMB, 128)
+    }
+
+    func testInterruptedBrowsingShowsRecoveryAndNormalExitResetsIt() {
+        let suite = "AchaarRecoveryTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        XCTAssertFalse(BrowsingRecovery.beginSession(in: defaults))
+        XCTAssertFalse(BrowsingRecovery.beginSession(in: defaults))
+        XCTAssertTrue(BrowsingRecovery.beginSession(in: defaults))
+        BrowsingRecovery.endSession(in: defaults)
+        XCTAssertFalse(BrowsingRecovery.beginSession(in: defaults))
+        BrowsingRecovery.endSession(in: defaults)
+        BrowsingRecovery.markActive(in: defaults)
+        XCTAssertTrue(defaults.bool(forKey: "browsingWasActive"))
+    }
+
+    func testCacheBudgetMeasuresFilesWithoutFollowingLinks() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let file = directory.appendingPathComponent("fixture")
+        try Data(repeating: 0, count: 4096).write(to: file)
+        try FileManager.default.createSymbolicLink(at: directory.appendingPathComponent("link"), withDestinationURL: file)
+        XCTAssertEqual(CacheBudget.bytes(in: directory), 4096)
+        XCTAssertFalse(CacheBudget.shouldTrim(bytes: 64 * 1_048_576, budgetMB: 64))
+        XCTAssertTrue(CacheBudget.shouldTrim(bytes: 64 * 1_048_576 + 1, budgetMB: 64))
+        XCTAssertTrue(CacheBudget.shouldTrim(bytes: 0, budgetMB: 0))
     }
 
     @MainActor
