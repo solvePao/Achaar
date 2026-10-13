@@ -46,7 +46,27 @@ Tracker blocking is **off by default**. It blocks a small conservative list of t
 
 **Cached files budget** offers 64 MB–1 GB, or cache cleanup on background. The app measures cache-folder file metadata and checks the budget at launch, background and on demand. Exceeding it removes disposable WebKit caches without reloading the current form. This is a cleanup threshold, not a hard maximum on WebKit’s total storage or memory: public WebKit APIs expose neither a total byte count nor a storage quota. Cookies, IndexedDB and local storage are excluded. **Clear cached files** preserves login cookies and web storage. **Clear local session & sign out** removes website data only from Achaar, clears browser history, and opens Instagram’s login page. Neither operation signs out your other devices; unsaved local drafts may be lost.
 
+<<<<<<< Updated upstream
 ## Folder structure
+=======
+If an enhancement breaks a page, enable **Original web interface** in Settings. If the website stops loading, use **Retry** to reload it.
+
+See the [usage and privacy guide](docs/Usage.md) for message reactions, cache behavior, app lock, permissions, and recovery details.
+
+## Privacy and boundaries
+
+Credentials are entered into Instagram’s own page. Login cookies and website storage remain in WebKit’s persistent data store; Achaar does not copy them into its own session database. Settings and usage counters stay locally on the device.
+
+There is no Achaar backend or analytics. Instagram’s own data collection still applies. Optional conservative tracker blocking is **off by default** and can affect website features; it cannot stop Instagram’s own tracking.
+
+The app uses public Apple APIs and recognized website controls. It does not call private Instagram endpoints or extract a parallel native feed or message database. JavaScript bridge messages are validated against the active Instagram main frame; private content and credentials are not transmitted through that bridge.
+
+The cache budget is a **cleanup threshold**, not a hard limit on all WebKit storage or memory. Keeping Messages ready retains a page; it does not provide offline messaging or background delivery.
+
+Reliable background Instagram notifications are not implemented. Calls, advanced creation, uploads, and specialized message features depend on Instagram Web and remain unverified where noted. A fatal app termination cannot be caught and continued; recovery is available on a subsequent launch. Manual scrolling stability remains an acceptance check.
+
+## Project structure
+>>>>>>> Stashed changes
 
 ```text
 Achaar.xcodeproj/         Ready-to-open project and shared schemes

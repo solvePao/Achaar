@@ -114,7 +114,7 @@ final class LoginSmokeTests: XCTestCase {
         app.launch()
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Browsing stopped unexpectedly")).firstMatch.waitForExistence(timeout: 10))
         XCTAssertTrue(app.buttons["Retry"].exists)
-        XCTAssertTrue(app.buttons["Open Instagram in Safari"].exists)
+        XCTAssertFalse(app.buttons["Open Instagram in Safari"].exists)
         XCTAssertFalse(app.webViews.firstMatch.exists, "Recovery should prevent loading the failing page until Retry.")
         XCTAssertFalse(app.buttons["tab.home"].exists, "Recovery should show its own actions instead of inactive navigation.")
         app.terminate()

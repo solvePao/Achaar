@@ -27,7 +27,6 @@ final class BrowserViewController: UIViewController, UIAdaptivePresentationContr
     private let status = UILabel()
     private let spinner = UIActivityIndicatorView(style: .medium)
     private let retry = UIButton(type: .system)
-    private let safari = UIButton(type: .system)
     private let unlock = UIButton(type: .system)
     private var embedded: WKWebView?
     private var withBar: NSLayoutConstraint!
@@ -161,8 +160,6 @@ final class BrowserViewController: UIViewController, UIAdaptivePresentationContr
         status.font = .preferredFont(forTextStyle: .body); status.adjustsFontForContentSizeCategory = true
         retry.setTitle("Retry", for: .normal)
         retry.addAction(UIAction { [weak self] _ in self?.retryBrowsing() }, for: .touchUpInside)
-        safari.setTitle("Open Instagram in Safari", for: .normal)
-        safari.addAction(UIAction { _ in UIApplication.shared.open(InstagramRouting.home) }, for: .touchUpInside)
         unlock.setTitle("Unlock", for: .normal)
         unlock.addAction(UIAction { [weak self] _ in self?.authenticate() }, for: .touchUpInside)
         let icon = UIImageView(image: UIImage(named: "BrandIcon"))
@@ -176,7 +173,7 @@ final class BrowserViewController: UIViewController, UIAdaptivePresentationContr
         usageLabel.numberOfLines = 0; usageLabel.textAlignment = .center
         usageLabel.accessibilityIdentifier = "usage.today"
         status.textColor = .darkGray; spinner.color = .darkGray
-        let stack = UIStackView(arrangedSubviews: [icon, brandName, usageLabel, spinner, status, retry, safari, unlock])
+        let stack = UIStackView(arrangedSubviews: [icon, brandName, usageLabel, spinner, status, retry, unlock])
         stack.axis = .vertical; stack.spacing = 16; stack.alignment = .center
         stack.translatesAutoresizingMaskIntoConstraints = false
         cover.addSubview(stack)
@@ -289,12 +286,11 @@ final class BrowserViewController: UIViewController, UIAdaptivePresentationContr
         embedded?.isUserInteractionEnabled = cover.isHidden
         embedded?.accessibilityElementsHidden = !cover.isHidden
         if !unlocked { status.text = appLock.error ?? "Achaar is locked" }
-        else if recoveryRequired { status.text = "Browsing stopped unexpectedly more than once. Retry when ready, or open Instagram in Safari." }
+        else if recoveryRequired { status.text = "Browsing stopped unexpectedly more than once. Retry when ready." }
         else if let failure = browser.failure { status.text = failure }
         else { status.text = browser.isClearing ? "Clearing website data…" : "Opening Instagram…" }
         let failed = unlocked && (browser.failure != nil || recoveryRequired)
         retry.isHidden = !failed
-        safari.isHidden = !failed
         unlock.isHidden = unlocked
         unlock.isEnabled = !appLock.isAuthenticating
         if !cover.isHidden && unlocked && !failed { spinner.startAnimating() } else { spinner.stopAnimating() }
