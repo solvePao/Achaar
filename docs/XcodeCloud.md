@@ -16,13 +16,9 @@ Achaar's **TestFlight** workflow is configured in App Store Connect:
 
 ## Push a beta
 
-Commit your changes on `main`, then move the beta branch forward:
+Merge development changes into `main`, then open a pull request with **base `testflight`** and **compare `main`**. Review and merge that PR to publish the next beta. The merge pushes a new commit to `testflight`, which starts this workflow automatically.
 
-```sh
-git switch testflight
-git merge --ff-only main
-git push origin testflight
-```
+Do not force-push the distribution branch. If GitHub reports no differences, both branches already contain the same code and there is nothing to release.
 
 Each new push starts a cloud archive. Successful archives are uploaded and processed for TestFlight, then assigned to the internal group. The group starts with no testers; add eligible internal testers in App Store Connect when you want them to receive builds. External testing requires its own group and Apple's beta review; this workflow does not submit a public App Store release.
 
