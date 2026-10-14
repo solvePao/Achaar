@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
 const source = readFileSync(new URL('../Achaar/Resources/Web/Navigation.js', import.meta.url), 'utf8');
-function fixture({ paths = ['/', '/explore/', '/direct/inbox/'], path = '/', top = 720, label = 'Profile', semantic = true, position = 'fixed', width = 390, avatarProfile = false, videos = [] } = {}) {
+function fixture({ paths = ['/', '/explore/', '/direct/inbox/'], path = '/', top = 720, label = 'Profile', semantic = true, position = 'fixed', width = 390, avatarProfile = false, videos = [], dialogs = [] } = {}) {
     const events = [];
     let observer;
     let clicked = 0;
@@ -34,6 +34,7 @@ function fixture({ paths = ['/', '/explore/', '/direct/inbox/'], path = '/', top
     const document = {
         documentElement: { dataset: {} },
         querySelectorAll: selector => {
+            if (selector === '[role="dialog"], [aria-modal="true"]') return dialogs;
             if (selector === "video") return videos;
             if (selector.includes('contenteditable')) return [];
             if (selector === '.achaar-verified-bottom-navigation') return classes.size ? [nav] : [];
@@ -63,6 +64,26 @@ assert.equal(valid.window.AchaarWeb.action('unknown'), false);
 assert.equal(valid.window.AchaarWeb.action('create'), false, 'Missing actions return failure for native fallback');
 
 const incomplete = fixture({ paths: ['/', '/explore/'] });
+const dialogs = [];
+const shareSheet = fixture({ path: '/reels/', dialogs });
+shareSheet.window.AchaarWeb.setEnhanced(true);
+const dialog = { getClientRects: () => [{}] };
+dialogs.push(dialog);
+shareSheet.mutate();
+assert.equal(shareSheet.events.at(-1).value, 'modal', 'Share sheet hides native chrome even when the URL remains Reels');
+assert(shareSheet.classes.has('achaar-verified-bottom-navigation'), 'Website navigation stays hidden under the sheet');
+dialog.getClientRects = () => [];
+shareSheet.mutate();
+assert.equal(shareSheet.events.at(-1).value, 'native', 'Hidden sheet restores native navigation');
+dialog.getClientRects = () => [{}];
+shareSheet.mutate();
+dialogs.pop();
+shareSheet.mutate();
+assert.equal(shareSheet.events.at(-1).value, 'native', 'Removed sheet restores native navigation');
+shareSheet.window.AchaarWeb.setEnhanced(false);
+dialogs.push(dialog);
+shareSheet.mutate();
+assert.equal(shareSheet.events.at(-1).value, 'original', 'Original interface keeps ownership of its sheets');
 incomplete.window.AchaarWeb.setEnhanced(true);
 assert.equal(incomplete.classes.size, 0, 'Partial navigation is never hidden');
 const header = fixture({ top: 0 });
@@ -213,4 +234,4 @@ assert.equal(secondVideo.muted, true, 'Next reel retains explicit mute');
 sound.window.AchaarWeb.setReelsMuted(false);
 assert.equal(secondVideo.muted, false, 'Unmute applies to next visible reel');
 assert.equal(firstVideo.muted, true, 'Previous reel no longer emits audio');
-console.log('Web adapter: 59 assertions passed.');
+console.log('Web adapter checks passed.');

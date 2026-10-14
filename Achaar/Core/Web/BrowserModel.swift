@@ -55,6 +55,7 @@ final class BrowserModel: NSObject {
         let ready: Bool
         let original: Bool
         let immersive: Bool
+        let modal: Bool
     }
     private var mainPage: WarmPage?
     private var messagesPage: WarmPage?
@@ -69,6 +70,7 @@ final class BrowserModel: NSObject {
     var isWebInterfaceReady = false
     var originalNavigationVisible = false
     var immersivePresentation = false
+    var modalPresentation = false
     var reelsMuted = UserDefaults.standard.bool(forKey: "reelsMuted")
     var messageControlsRevision = 0
     var isLoading = false
@@ -199,7 +201,7 @@ final class BrowserModel: NSObject {
 
     private func switchWarmPage(toMessages: Bool) {
         let saved = WarmPage(view: webView, tab: selectedTab, ready: isWebInterfaceReady,
-                             original: originalNavigationVisible, immersive: immersivePresentation)
+                             original: originalNavigationVisible, immersive: immersivePresentation, modal: modalPresentation)
         let candidate = toMessages ? messagesPage : mainPage
         let destination = candidate?.ready == true ? candidate : nil
         if destination == nil { candidate?.view.stopLoading(); candidate?.view.navigationDelegate = nil; candidate?.view.uiDelegate = nil }
@@ -216,6 +218,7 @@ final class BrowserModel: NSObject {
         isWebInterfaceReady = destination?.ready ?? false
         originalNavigationVisible = destination?.original ?? false
         immersivePresentation = destination?.immersive ?? false
+        modalPresentation = destination?.modal ?? false
         failure = nil
         navigationRevision += 1
         attachWebView()
@@ -356,9 +359,10 @@ final class BrowserModel: NSObject {
                                              port: origin.port, mainFrame: message.frameInfo.isMainFrame),
               let body = message.body as? [String: Any], body.count == 2,
               let type = body["type"] as? String, let value = body["value"] as? String else { return }
-        if type == "navigation", ["native", "original", "immersive"].contains(value) {
+        if type == "navigation", ["native", "original", "immersive", "modal"].contains(value) {
             originalNavigationVisible = value == "original"
             immersivePresentation = value == "immersive"
+            modalPresentation = value == "modal"
             isWebInterfaceReady = true
             tryStartupProfile()
             finishPendingAction()
@@ -504,6 +508,7 @@ extension BrowserModel: WKNavigationDelegate {
             isWebInterfaceReady = false
             originalNavigationVisible = false
             immersivePresentation = false
+            modalPresentation = false
         }
     }
 

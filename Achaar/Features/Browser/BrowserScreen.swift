@@ -14,6 +14,8 @@ final class BrowserViewController: UIViewController, UIAdaptivePresentationContr
     private var launchCoverUntil = Date.distantPast
     private let brandName = UILabel()
     private let usageLabel = UILabel()
+    private let lifetimeUsageLabel = UILabel()
+    private let projectedUsageLabel = UILabel()
     private let reelSound = UIButton(type: .system)
     private let bar = InstagramNavigationPill()
     private let more = UIButton(type: .system)
@@ -27,7 +29,6 @@ final class BrowserViewController: UIViewController, UIAdaptivePresentationContr
     private let status = UILabel()
     private let spinner = UIActivityIndicatorView(style: .medium)
     private let retry = UIButton(type: .system)
-    private let safari = UIButton(type: .system)
     private let unlock = UIButton(type: .system)
     private var embedded: WKWebView?
     private var withBar: NSLayoutConstraint!
@@ -161,8 +162,6 @@ final class BrowserViewController: UIViewController, UIAdaptivePresentationContr
         status.font = .preferredFont(forTextStyle: .body); status.adjustsFontForContentSizeCategory = true
         retry.setTitle("Retry", for: .normal)
         retry.addAction(UIAction { [weak self] _ in self?.retryBrowsing() }, for: .touchUpInside)
-        safari.setTitle("Open Instagram in Safari", for: .normal)
-        safari.addAction(UIAction { _ in UIApplication.shared.open(InstagramRouting.home) }, for: .touchUpInside)
         unlock.setTitle("Unlock", for: .normal)
         unlock.addAction(UIAction { [weak self] _ in self?.authenticate() }, for: .touchUpInside)
         let icon = UIImageView(image: UIImage(named: "BrandIcon"))
@@ -172,18 +171,47 @@ final class BrowserViewController: UIViewController, UIAdaptivePresentationContr
         icon.heightAnchor.constraint(equalToConstant: 160).isActive = true
         brandName.text = "Achaar"; brandName.font = .preferredFont(forTextStyle: .largeTitle)
         brandName.textColor = .black; brandName.adjustsFontForContentSizeCategory = true
-        usageLabel.font = .preferredFont(forTextStyle: .subheadline); usageLabel.textColor = .darkGray
-        usageLabel.numberOfLines = 0; usageLabel.textAlignment = .center
-        usageLabel.accessibilityIdentifier = "usage.today"
+        for (label, identifier) in [(usageLabel, "usage.today"), (lifetimeUsageLabel, "usage.lifetime"),
+                                    (projectedUsageLabel, "usage.projection")] {
+            label.font = .preferredFont(forTextStyle: .subheadline)
+            label.textColor = .darkGray
+            label.numberOfLines = 0; label.textAlignment = .center
+            label.adjustsFontForContentSizeCategory = true
+            label.accessibilityIdentifier = identifier
+        }
         status.textColor = .darkGray; spinner.color = .darkGray
-        let stack = UIStackView(arrangedSubviews: [icon, brandName, usageLabel, spinner, status, retry, safari, unlock])
+        let statistics = UIStackView(arrangedSubviews: [usageLabel, lifetimeUsageLabel, projectedUsageLabel])
+        statistics.axis = .vertical; statistics.spacing = 8; statistics.alignment = .fill
+        let stack = UIStackView(arrangedSubviews: [icon, brandName, statistics, spinner, status, retry, unlock])
         stack.axis = .vertical; stack.spacing = 16; stack.alignment = .center
         stack.translatesAutoresizingMaskIntoConstraints = false
-        cover.addSubview(stack)
+        let scroll = UIScrollView()
+        scroll.translatesAutoresizingMaskIntoConstraints = false
+        cover.addSubview(scroll)
+        let container = UIView()
+        container.translatesAutoresizingMaskIntoConstraints = false
+        scroll.addSubview(container)
+        container.addSubview(stack)
+        let viewportHeight = container.heightAnchor.constraint(equalTo: scroll.frameLayoutGuide.heightAnchor)
+        viewportHeight.priority = .defaultLow
+        viewportHeight.isActive = true
         NSLayoutConstraint.activate([
-            stack.centerXAnchor.constraint(equalTo: cover.centerXAnchor), stack.centerYAnchor.constraint(equalTo: cover.centerYAnchor),
-            stack.leadingAnchor.constraint(greaterThanOrEqualTo: cover.leadingAnchor, constant: 24),
-            stack.trailingAnchor.constraint(lessThanOrEqualTo: cover.trailingAnchor, constant: -24)
+            scroll.topAnchor.constraint(equalTo: cover.safeAreaLayoutGuide.topAnchor),
+            scroll.bottomAnchor.constraint(equalTo: cover.safeAreaLayoutGuide.bottomAnchor),
+            scroll.leadingAnchor.constraint(equalTo: cover.leadingAnchor), scroll.trailingAnchor.constraint(equalTo: cover.trailingAnchor),
+            container.topAnchor.constraint(equalTo: scroll.contentLayoutGuide.topAnchor),
+            container.bottomAnchor.constraint(equalTo: scroll.contentLayoutGuide.bottomAnchor),
+            container.leadingAnchor.constraint(equalTo: scroll.contentLayoutGuide.leadingAnchor),
+            container.trailingAnchor.constraint(equalTo: scroll.contentLayoutGuide.trailingAnchor),
+            container.widthAnchor.constraint(equalTo: scroll.frameLayoutGuide.widthAnchor),
+            container.heightAnchor.constraint(greaterThanOrEqualTo: scroll.frameLayoutGuide.heightAnchor),
+            stack.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            stack.topAnchor.constraint(greaterThanOrEqualTo: container.topAnchor, constant: 24),
+            stack.bottomAnchor.constraint(lessThanOrEqualTo: container.bottomAnchor, constant: -24),
+            stack.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 24),
+            stack.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -24),
+            statistics.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            status.widthAnchor.constraint(equalTo: stack.widthAnchor)
         ])
         NotificationCenter.default.addObserver(self, selector: #selector(memoryWarning),
             name: UIApplication.didReceiveMemoryWarningNotification, object: nil)
@@ -239,7 +267,7 @@ final class BrowserViewController: UIViewController, UIAdaptivePresentationContr
             ])
             embedded = web
         }
-        let showBar = settings.enhancements && !browser.originalNavigationVisible && !browser.immersivePresentation && !keyboardVisible
+        let showBar = settings.enhancements && !browser.originalNavigationVisible && !browser.immersivePresentation && !browser.modalPresentation && !keyboardVisible
         if showBar {
             withoutBar.isActive = false; withBar.isActive = true
         } else {
@@ -258,7 +286,7 @@ final class BrowserViewController: UIViewController, UIAdaptivePresentationContr
             && browser.webView.url?.path == "/" && unlocked && !recoveryRequired && browser.failure == nil
         createButton.isHidden = !showFeedActions; activityButton.isHidden = !showFeedActions
         moreBottom.constant = showBar ? -10 : 39
-        more.isHidden = browser.immersivePresentation || keyboardVisible || (showBar && !recoveryRequired && browser.failure == nil)
+        more.isHidden = browser.immersivePresentation || browser.modalPresentation || keyboardVisible || (showBar && !recoveryRequired && browser.failure == nil)
         more.isEnabled = unlocked && !browser.isClearing
         let shareURL = InstagramRouting.shareURL(browser.webView.url)
         if more.menu == nil || menuTab != browser.selectedTab || menuShareURL != shareURL {
@@ -273,10 +301,10 @@ final class BrowserViewController: UIViewController, UIAdaptivePresentationContr
         }
         progress.progress = Float(browser.progress)
         progress.isHidden = !browser.isLoading
-        usageLabel.text = usage.label()
+        refreshUsageLabels()
         let waiting = (settings.enhancements && !browser.isWebInterfaceReady) || browser.isLoading || Date() < launchCoverUntil
         cover.isHidden = unlocked && !recoveryRequired && !waiting && !browser.isClearing && browser.failure == nil
-        reelSound.isHidden = !cover.isHidden || browser.selectedTab != .reels || !settings.enhancements
+        reelSound.isHidden = !cover.isHidden || browser.selectedTab != .reels || !settings.enhancements || browser.modalPresentation || keyboardVisible
         reelSound.configuration?.image = UIImage(systemName: browser.reelsMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
         reelSound.accessibilityLabel = browser.reelsMuted ? "Unmute Reels" : "Mute Reels"
         view.backgroundColor = cover.isHidden ? UIColor { $0.userInterfaceStyle == .dark
@@ -289,12 +317,11 @@ final class BrowserViewController: UIViewController, UIAdaptivePresentationContr
         embedded?.isUserInteractionEnabled = cover.isHidden
         embedded?.accessibilityElementsHidden = !cover.isHidden
         if !unlocked { status.text = appLock.error ?? "Achaar is locked" }
-        else if recoveryRequired { status.text = "Browsing stopped unexpectedly more than once. Retry when ready, or open Instagram in Safari." }
+        else if recoveryRequired { status.text = "Browsing stopped unexpectedly more than once. Retry when ready." }
         else if let failure = browser.failure { status.text = failure }
         else { status.text = browser.isClearing ? "Clearing website data…" : "Opening Instagram…" }
         let failed = unlocked && (browser.failure != nil || recoveryRequired)
         retry.isHidden = !failed
-        safari.isHidden = !failed
         unlock.isHidden = unlocked
         unlock.isEnabled = !appLock.isAuthenticating
         if !cover.isHidden && unlocked && !failed { spinner.startAnimating() } else { spinner.stopAnimating() }
@@ -391,6 +418,13 @@ final class BrowserViewController: UIViewController, UIAdaptivePresentationContr
         present(host, animated: true)
     }
 
+    private func refreshUsageLabels() {
+        let summary = usage.summary()
+        usageLabel.text = summary.todayLabel
+        lifetimeUsageLabel.text = summary.lifetimeLabel
+        projectedUsageLabel.text = summary.projectionLabel
+    }
+
     func activate() {
         active = true
         usage.begin()
@@ -398,7 +432,7 @@ final class BrowserViewController: UIViewController, UIAdaptivePresentationContr
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.85) { [weak self] in self?.render() }
         usageTimer?.invalidate()
         usageTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
-            Task { @MainActor [weak self] in self?.usage.record(); self?.usageLabel.text = self?.usage.label() }
+            Task { @MainActor [weak self] in self?.usage.record(); self?.refreshUsageLabels() }
         }
         if !checkedRecovery {
             checkedRecovery = true

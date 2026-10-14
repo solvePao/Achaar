@@ -4,6 +4,10 @@ html[data-achaar-enhanced="true"] {
     -webkit-text-size-adjust: 100%;
 }
 html[data-achaar-enhanced="true"] body { -webkit-tap-highlight-color: transparent; }
+/* iOS zooms focused inputs below 16px, clipping phone-sized share sheets. */
+html[data-achaar-enhanced="true"] :is([role="dialog"], [aria-modal="true"]) input:is([type="text"], [type="search"], :not([type])) {
+    font-size: 16px !important;
+}
 /* This class is applied only to a bottom navigation whose routes were verified. */
 html[data-achaar-enhanced="true"] .achaar-verified-bottom-navigation,
 html[data-achaar-enhanced="true"] .achaar-verified-bottom-navigation * {
