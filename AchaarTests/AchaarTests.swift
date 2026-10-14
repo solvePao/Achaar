@@ -34,6 +34,116 @@ final class AchaarTests: XCTestCase {
         XCTAssertEqual(relaunched.seconds(at: start.addingTimeInterval(300)), 15)
     }
 
+    @MainActor func testUsageLifetimeIncludesBothSidesOfResetAndSurvivesRelaunch() {
+        withUsageTracker { tracker, defaults, calendar in
+            let start = calendar.date(from: DateComponents(year: 2026, month: 10, day: 12, hour: 2, minute: 59, second: 50))!
+            tracker.begin(at: start)
+            tracker.end(at: start.addingTimeInterval(30))
+            XCTAssertEqual(tracker.summary(at: start.addingTimeInterval(30)).lifetimeSeconds, 30)
+            XCTAssertEqual(tracker.seconds(at: start.addingTimeInterval(30)), 20)
+            XCTAssertEqual(tracker.seconds(at: start), 10)
+            let reloaded = UsageTracker(defaults: defaults, calendar: calendar)
+            XCTAssertEqual(reloaded.summary(at: start.addingTimeInterval(86_400)).lifetimeSeconds, 30)
+            reloaded.begin(at: start.addingTimeInterval(86_400))
+            reloaded.end(at: start.addingTimeInterval(86_410))
+            XCTAssertEqual(reloaded.summary(at: start.addingTimeInterval(86_410)).lifetimeSeconds, 40)
+        }
+    }
+
+    @MainActor func testUsageMigratesLegacyCounterOnlyOnceIncludingOldDay() {
+        withUsageTracker { _, defaults, calendar in
+            defaults.removeObject(forKey: "usage.statistics.v1")
+            let day = calendar.date(from: DateComponents(year: 2026, month: 1, day: 1, hour: 3))!
+            defaults.set(day.timeIntervalSince1970, forKey: "usage.day")
+            defaults.set(3600.0, forKey: "usage.seconds")
+            let migrated = UsageTracker(defaults: defaults, calendar: calendar)
+            XCTAssertEqual(migrated.seconds(at: day), 3600)
+            let later = day.addingTimeInterval(10 * 86_400)
+            migrated.record(at: later)
+            XCTAssertEqual(migrated.summary(at: later).lifetimeSeconds, 3600)
+            XCTAssertEqual(migrated.summary(at: later).projectedSeconds, 0)
+            defaults.set(9000.0, forKey: "usage.seconds")
+            let reloaded = UsageTracker(defaults: defaults, calendar: calendar)
+            XCTAssertEqual(reloaded.summary(at: later).lifetimeSeconds, 3600)
+        }
+    }
+
+    @MainActor func testUsageProjectionUsesMaximumWithinSevenDaysAndExpiresIt() {
+        withUsageTracker { tracker, _, calendar in
+            let first = calendar.date(from: DateComponents(year: 2026, month: 10, day: 1, hour: 12))!
+            XCTAssertEqual(tracker.summary(at: first).projectedSeconds, 0)
+            tracker.begin(at: first); tracker.end(at: first.addingTimeInterval(7200))
+            let second = first.addingTimeInterval(86_400)
+            tracker.begin(at: second); tracker.end(at: second.addingTimeInterval(3600))
+            let sixth = first.addingTimeInterval(6 * 86_400)
+            let yearEnd = calendar.date(from: DateComponents(year: 2027, month: 1, day: 1))!
+            XCTAssertEqual(tracker.summary(at: sixth).projectedSeconds,
+                           7200 * yearEnd.timeIntervalSince(sixth) / 86_400, accuracy: 0.001)
+            let seventh = first.addingTimeInterval(7 * 86_400)
+            tracker.record(at: seventh)
+            XCTAssertEqual(tracker.summary(at: seventh).projectedSeconds,
+                           3600 * yearEnd.timeIntervalSince(seventh) / 86_400, accuracy: 0.001)
+            XCTAssertEqual(tracker.summary(at: seventh).lifetimeSeconds, 10_800)
+            XCTAssertEqual(tracker.summary(at: first.addingTimeInterval(8 * 86_400)).projectedSeconds, 0)
+        }
+    }
+
+    @MainActor func testUsageProjectionYearRolloverUsesLocalMidnightAndFormatsDurations() {
+        withUsageTracker { _, defaults, _ in
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = TimeZone(identifier: "Asia/Kolkata")!
+            let tracker = UsageTracker(defaults: defaults, calendar: calendar)
+            let start = calendar.date(from: DateComponents(year: 2026, month: 12, day: 31, hour: 12))!
+            tracker.begin(at: start); tracker.end(at: start.addingTimeInterval(3600))
+            let midnight = calendar.date(from: DateComponents(year: 2027, month: 1, day: 1))!
+            XCTAssertEqual(tracker.summary(at: midnight.addingTimeInterval(-1)).projectedSeconds, 3600 / 86_400, accuracy: 0.001)
+            XCTAssertEqual(tracker.summary(at: midnight).projectedSeconds, 3600 * 365, accuracy: 0.001)
+            XCTAssertEqual(tracker.summary(at: midnight).lifetimeSeconds, 3600)
+            let formatted = UsageSummary(todaySeconds: 8159, lifetimeSeconds: 463259, projectedSeconds: 1_058_459)
+            XCTAssertEqual(formatted.todayLabel, "Today: 2h 15m")
+            XCTAssertEqual(formatted.lifetimeLabel, "Total time spent: 128h 40m")
+            XCTAssertEqual(formatted.projectionLabel, "Expected time wasted by Dec 31: 12d 6h 0m")
+        }
+    }
+
+    @MainActor func testUsageDoesNotDuplicateCheckpointsOrCountInactiveGaps() {
+        withUsageTracker { tracker, defaults, calendar in
+            let start = calendar.date(from: DateComponents(year: 2026, month: 10, day: 12, hour: 12))!
+            tracker.begin(at: start); tracker.begin(at: start.addingTimeInterval(10))
+            tracker.record(at: start.addingTimeInterval(5))
+            tracker.end(at: start.addingTimeInterval(20))
+            tracker.record(at: start.addingTimeInterval(100))
+            let reloaded = UsageTracker(defaults: defaults, calendar: calendar)
+            reloaded.begin(at: start.addingTimeInterval(200)); reloaded.end(at: start.addingTimeInterval(210))
+            XCTAssertEqual(reloaded.summary(at: start.addingTimeInterval(210)).lifetimeSeconds, 30)
+        }
+    }
+
+    @MainActor func testUsageSplitsMultipleDaysAcrossDaylightSavingTime() {
+        withUsageTracker { _, defaults, _ in
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = TimeZone(identifier: "America/New_York")!
+            let tracker = UsageTracker(defaults: defaults, calendar: calendar)
+            let first = calendar.date(from: DateComponents(year: 2026, month: 3, day: 7, hour: 3))!
+            let second = calendar.date(from: DateComponents(year: 2026, month: 3, day: 8, hour: 3))!
+            let third = calendar.date(from: DateComponents(year: 2026, month: 3, day: 9, hour: 3))!
+            tracker.begin(at: first); tracker.end(at: third.addingTimeInterval(60))
+            XCTAssertEqual(tracker.seconds(at: first), 23 * 3600)
+            XCTAssertEqual(tracker.seconds(at: second), 24 * 3600)
+            XCTAssertEqual(tracker.seconds(at: third), 60)
+            XCTAssertEqual(tracker.summary(at: third).lifetimeSeconds, 47 * 3600 + 60)
+        }
+    }
+
+    @MainActor private func withUsageTracker(_ body: (UsageTracker, UserDefaults, Calendar) -> Void) {
+        let name = "usage.tests." + UUID().uuidString
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        body(UsageTracker(defaults: defaults, calendar: calendar), defaults, calendar)
+    }
+
     func testOnlySecureInstagramOriginsAreEmbedded() {
         for value in ["https://instagram.com/", "https://www.instagram.com/direct/inbox/", "https://accountscenter.instagram.com/"] {
             XCTAssertTrue(InstagramRouting.isInstagram(URL(string: value)), value)

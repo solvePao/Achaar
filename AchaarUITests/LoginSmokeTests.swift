@@ -2,6 +2,55 @@ import XCTest
 
 @MainActor
 final class LoginSmokeTests: XCTestCase {
+    func testReelShareHasNoNativeOverlap() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-browsingWasActive", "NO"]
+        app.launch()
+        enableNativeNavigation(in: app)
+        let reels = app.buttons["tab.reels"]
+        XCTAssertTrue(reels.waitForExistence(timeout: 20))
+        expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: reels)
+        waitForExpectations(timeout: 20)
+        reels.tap()
+        let share = app.webViews.buttons.matching(NSPredicate(format: "label MATCHES[c] %@", "share( post)?")).firstMatch
+        XCTAssertTrue(share.waitForExistence(timeout: 30))
+        guard share.exists else { return }
+        share.tap()
+        let close = app.webViews.descendants(matching: .any).matching(identifier: "Close").firstMatch
+        XCTAssertTrue(close.waitForExistence(timeout: 15))
+        expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: reels)
+        waitForExpectations(timeout: 10)
+        XCTAssertFalse(app.buttons["reels.sound"].exists)
+        XCTAssertFalse(app.buttons["More"].exists)
+        let capture = XCTAttachment(screenshot: app.screenshot())
+        capture.name = "Reel share without native overlap"; capture.lifetime = .keepAlways; add(capture)
+        let copyLink = app.webViews.buttons.matching(NSPredicate(format: "label CONTAINS[c] %@", "Copy Link")).firstMatch
+        XCTAssertTrue(copyLink.exists)
+        XCTAssertLessThanOrEqual(copyLink.frame.maxY, app.webViews.firstMatch.frame.maxY)
+        app.webViews.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.70))
+            .press(forDuration: 0.1, thenDragTo: app.webViews.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.40)))
+        XCTAssertFalse(reels.exists)
+        XCTAssertTrue(close.exists)
+        let search = app.webViews.textFields.firstMatch
+        XCTAssertTrue(search.exists)
+        search.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertLessThanOrEqual(search.frame.maxY, app.keyboards.firstMatch.frame.minY)
+        XCTAssertLessThanOrEqual(search.frame.maxX, app.webViews.firstMatch.frame.maxX)
+        let cancelSearch = app.webViews.buttons["Cancel"].firstMatch
+        if cancelSearch.exists {
+            XCTAssertLessThanOrEqual(cancelSearch.frame.maxX, app.webViews.firstMatch.frame.maxX)
+        }
+        XCTAssertFalse(reels.exists)
+        XCTAssertFalse(app.buttons["reels.sound"].exists)
+        let keyboardCapture = XCTAttachment(screenshot: app.screenshot())
+        keyboardCapture.name = "Reel share search keyboard"; keyboardCapture.lifetime = .keepAlways; add(keyboardCapture)
+        close.tap()
+        XCTAssertTrue(reels.waitForExistence(timeout: 15))
+        XCTAssertTrue(app.buttons["reels.sound"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.keyboards.firstMatch.exists)
+    }
+
     func testConversationLayoutAndReactionControls() throws {
         guard let threadName = ProcessInfo.processInfo.environment["ACHAAR_TEST_THREAD"],
               !threadName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {

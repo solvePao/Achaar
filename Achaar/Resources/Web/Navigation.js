@@ -67,6 +67,7 @@
     });
     const visible = node => !!node && node.getClientRects().length > 0
         && getComputedStyle(node).visibility !== "hidden" && getComputedStyle(node).display !== "none";
+    const modalOpen = () => [...document.querySelectorAll('[role="dialog"], [aria-modal="true"]')].some(visible);
     const restore = () => {
         document.querySelectorAll(".achaar-verified-bottom-navigation").forEach(node =>
             { node.classList.remove("achaar-verified-bottom-navigation"); node.classList.remove("achaar-verified-desktop-navigation"); });
@@ -121,7 +122,7 @@
         const page = location.pathname.startsWith("/stories/") ? "story" : knownPath(location.pathname);
         const conversation = /^\/direct\/t\//.test(location.pathname) || !!conversationEditor();
         const inbox = !conversation && page === "messages" && ["/direct/", "/direct/inbox/"].includes(location.pathname);
-        const dialogOpen = [...document.querySelectorAll("[role='dialog']")].some(n => n.getClientRects?.().length > 0);
+        const dialogOpen = modalOpen();
         const expandedInbox = inbox && !dialogOpen;
         if (document.documentElement) {
             document.documentElement.dataset.achaarPage = page || "other";
@@ -384,6 +385,9 @@
         if (verified && !verified.isConnected) verified = null;
         if (!enhanced) { restore(); reportMode("original"); return; }
         if (/accounts|challenge|checkpoint/.test(location.pathname)) { restore(); reportMode("native"); return; }
+        // Website sheets own the whole phone viewport. Keep the verified web
+        // navigation hidden, but remove native chrome until the sheet closes.
+        if (modalOpen()) { reportMode("modal"); return; }
         const immersive = location.pathname.startsWith("/stories/") || /^\/direct\/t\//.test(location.pathname) || !!conversationEditor();
         if (immersive) { reportMode("immersive"); if (conversationPane?.isConnected) reportMessageLayout(); }
         if (verified) {
@@ -642,7 +646,7 @@
         // additions as a fresh mutation, avoiding an inspection feedback loop.
         if (!records.length || records.some(record => record.type === "childList" || record.attributeName !== "class"
             || (record.oldValue || "").split(/\s+/).some(name => name.startsWith("achaar-") && !record.target.classList.contains(name)))) schedule();
-    }).observe(document, { subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: ["href", "role", "aria-label", "class"] });
+    }).observe(document, { subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: ["href", "role", "aria-label", "aria-modal", "aria-hidden", "class"] });
     for (const method of ["pushState", "replaceState"]) {
         const original = history[method];
         history[method] = function(...args) { const result = original.apply(this, args); schedule(); return result; };
