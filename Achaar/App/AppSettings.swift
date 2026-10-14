@@ -15,7 +15,6 @@ final class AppSettings {
     private let defaults: UserDefaults
     var appearance: Appearance { didSet { defaults.set(appearance.rawValue, forKey: "appearance") } }
     var startupTab: InstagramTab { didSet { defaults.set(startupTab.rawValue, forKey: "startupTab") } }
-    var nativeScreens: Bool { didSet { defaults.set(nativeScreens, forKey: "nativeScreens") } }
     var haptics: Bool { didSet { defaults.set(haptics, forKey: "haptics") } }
     var enhancements: Bool { didSet { defaults.set(enhancements, forKey: "enhancements") } }
     var keepMessagesReady: Bool { didSet { defaults.set(keepMessagesReady, forKey: "keepMessagesReady") } }
@@ -31,7 +30,6 @@ final class AppSettings {
         self.defaults = defaults
         appearance = Appearance(rawValue: defaults.string(forKey: "appearance") ?? "") ?? .system
         startupTab = InstagramTab(rawValue: defaults.string(forKey: "startupTab") ?? "") ?? .home
-        nativeScreens = defaults.object(forKey: "nativeScreens") == nil ? true : defaults.bool(forKey: "nativeScreens")
         haptics = defaults.object(forKey: "haptics") as? Bool ?? true
         enhancements = defaults.object(forKey: "enhancements") as? Bool ?? true
         // Re-enable integration once for the upgraded navigation implementation.

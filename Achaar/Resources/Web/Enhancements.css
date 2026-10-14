@@ -244,8 +244,3 @@ html[data-achaar-enhanced="true"][data-achaar-conversation="true"] .achaar-conve
 html[data-achaar-enhanced="true"][data-achaar-conversation="true"] .achaar-conversation-composer [role="textbox"] {
     width: 100% !important; min-width: 100px !important; font-size: 16px;
 }
-
-/* The native content renderer needs the original header's search and action
-   controls in its source DOM, even though they are covered by native views. */
-html[data-achaar-native="true"] .achaar-home-search,
-html[data-achaar-native="true"] .achaar-native-header-action { display: revert !important; }

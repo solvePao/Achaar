@@ -8,8 +8,6 @@ final class BrowserViewController: UIViewController, UIAdaptivePresentationContr
     let browser: BrowserModel
     let settings: AppSettings
     let appLock: AppLock
-    private var nativeHost: UIHostingController<NativeInstagramScreen>?
-    private var nativeFallbackURL: URL?
     private let content = UIView()
     private let usage = UsageTracker()
     private var usageTimer: Timer?
@@ -316,18 +314,8 @@ final class BrowserViewController: UIViewController, UIAdaptivePresentationContr
             bar.isHidden = true; more.isHidden = true; createButton.isHidden = true; activityButton.isHidden = true
             conversationBack.isHidden = true; messageReactionButton.isHidden = true; progress.isHidden = true
         }
-        let showNative = settings.nativeScreens && active && cover.isHidden && browser.popup == nil
-            && browser.webView.url != nil && nativeFallbackURL != browser.webView.url
-            && !(browser.webView.url?.path.hasPrefix("/accounts/") ?? false)
-            && !(browser.webView.url?.path.hasPrefix("/challenge/") ?? false)
-            && !(browser.webView.url?.path.hasPrefix("/checkpoint/") ?? false)
-        updateNativeScreen(enabled: showNative)
-        if showNative {
-            bar.isHidden = true; more.isHidden = true; createButton.isHidden = true; activityButton.isHidden = true
-            reelSound.isHidden = true; conversationBack.isHidden = true; messageReactionButton.isHidden = true
-        }
-        embedded?.isUserInteractionEnabled = cover.isHidden && !showNative
-        embedded?.accessibilityElementsHidden = !cover.isHidden || showNative
+        embedded?.isUserInteractionEnabled = cover.isHidden
+        embedded?.accessibilityElementsHidden = !cover.isHidden
         if !unlocked { status.text = appLock.error ?? "Achaar is locked" }
         else if recoveryRequired { status.text = "Browsing stopped unexpectedly more than once. Retry when ready." }
         else if let failure = browser.failure { status.text = failure }
@@ -338,29 +326,6 @@ final class BrowserViewController: UIViewController, UIAdaptivePresentationContr
         unlock.isEnabled = !appLock.isAuthenticating
         if !cover.isHidden && unlocked && !failed { spinner.startAnimating() } else { spinner.stopAnimating() }
         presentBrowserRequest()
-    }
-
-    private func updateNativeScreen(enabled: Bool) {
-        if !enabled { browser.webView.evaluateJavaScript("window.AchaarNative?.setEnabled(false)", completionHandler: nil) }
-        let screen = NativeInstagramScreen(browser: browser, enabled: enabled, openWeb: { [weak self] in
-            guard let self else { return }
-            self.nativeFallbackURL = self.browser.webView.url
-            self.menuTab = nil
-            self.render()
-        }, openSettings: { [weak self] in self?.showSettings() })
-        if let nativeHost { nativeHost.rootView = screen; nativeHost.view.isHidden = !enabled }
-        else if enabled {
-            let host = UIHostingController(rootView: screen)
-            addChild(host)
-            host.view.translatesAutoresizingMaskIntoConstraints = false
-            content.insertSubview(host.view, belowSubview: cover)
-            NSLayoutConstraint.activate([
-                host.view.topAnchor.constraint(equalTo: content.topAnchor), host.view.bottomAnchor.constraint(equalTo: content.bottomAnchor),
-                host.view.leadingAnchor.constraint(equalTo: content.leadingAnchor), host.view.trailingAnchor.constraint(equalTo: content.trailingAnchor)
-            ])
-            host.didMove(toParent: self)
-            nativeHost = host
-        }
     }
 
     // The website returns only normalized bounds for a recognized reaction
@@ -429,10 +394,7 @@ final class BrowserViewController: UIViewController, UIAdaptivePresentationContr
         let profile = UIMenu(title: "Profile shortcuts", image: UIImage(systemName: "person.crop.circle"), children:
             [WebAction.profile, .saved, .archive, .accountSettings].map(webAction))
         let instagram = UIMenu(title: "Instagram", options: .displayInline, children: [webAction(.activity), webAction(.search), posts, messages, profile])
-        var utilities: [UIMenuElement] = [action("Use native screen", symbol: "iphone") { [weak self] in
-            guard let self else { return }
-            self.nativeFallbackURL = nil; self.settings.nativeScreens = true; self.render()
-        }, action("Back", symbol: "chevron.backward") { [weak self] in self?.browser.goBack() },
+        var utilities: [UIMenuElement] = [action("Back", symbol: "chevron.backward") { [weak self] in self?.browser.goBack() },
             action("Refresh", symbol: "arrow.clockwise") { [weak self] in self?.browser.refresh() },
             action("Original web interface", symbol: "globe") { [weak self] in self?.settings.enhancements = false },
             action("Open Instagram in Safari", symbol: "safari") { UIApplication.shared.open(InstagramRouting.home) }]
@@ -498,7 +460,7 @@ final class BrowserViewController: UIViewController, UIAdaptivePresentationContr
             }
         }
     }
-    func deactivate() { usage.end(); usageTimer?.invalidate(); usageTimer = nil; active = false; BrowsingRecovery.endSession(); browser.suspendMedia(true); updateNativeScreen(enabled: false) }
+    func deactivate() { usage.end(); usageTimer?.invalidate(); usageTimer = nil; active = false; BrowsingRecovery.endSession(); browser.suspendMedia(true) }
     func enterBackground() {
         appLock.lock(enabled: settings.appLock)
         if settings.appLock { browser.prepareForLock(); presentedViewController?.dismiss(animated: false) }

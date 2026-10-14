@@ -149,9 +149,6 @@ final class BrowserModel: NSObject {
               let css = try? String(contentsOf: cssURL, encoding: .utf8),
               let data = try? JSONEncoder().encode(css), let cssLiteral = String(data: data, encoding: .utf8)
         else { notice = "Web enhancements are unavailable. Instagram’s original interface will remain visible."; return }
-        let nativeScript = Bundle.main.url(forResource: "NativeSurface", withExtension: "js")
-            .flatMap { try? String(contentsOf: $0, encoding: .utf8) } ?? ""
-        content.addUserScript(WKUserScript(source: nativeScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
         let originGuard = "if (!['instagram.com','www.instagram.com'].includes(location.hostname) || location.protocol !== 'https:') return;"
         let source = "(() => { \(originGuard) const style = document.createElement('style'); style.id = 'achaar-style'; style.textContent = \(cssLiteral); if (document.documentElement) document.documentElement.appendChild(style); else new MutationObserver((_, observer) => { if (document.documentElement) { document.documentElement.appendChild(style); observer.disconnect(); } }).observe(document, {childList:true}); })();\n" +
             "(() => { \(originGuard) \(js) })();"

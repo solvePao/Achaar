@@ -6,7 +6,7 @@ Edit prompt: preserve the supplied pickle jar, cloth lid, rope bow, pickles, col
 
 The system launch screen shows the icon and Achaar name. Once app code starts, a native branded screen also shows local foreground usage. The same screen hosts loading, clearing, lock and recovery states, retaining Retry/Safari/Unlock actions where appropriate. A terminated app cannot draw a screen during a fatal crash; the branded recovery UI appears when it opens again.
 
-The runtime loading screen shows three separate rows: Today (hours/minutes), Total time spent (hours/minutes), and Expected time wasted by Dec 31 (days/hours/minutes). Labels support Dynamic Type and wrapping; the screen scrolls when necessary to keep recovery controls reachable. The static system launch screen cannot show live usage.
+The runtime loading screen shows three separate rows: Today (hours/minutes), Total time spent (hours/minutes), and Expected Time Loss (days/hours/minutes). Labels support Dynamic Type and wrapping; the screen scrolls when necessary to keep recovery controls reachable. The static system launch screen cannot show live usage.
 
 A usage day runs from 3 AM to the next 3 AM in the phone's local calendar. Foreground intervals are checkpointed every five seconds and on deactivation, splitting intervals at 3 AM. A fatal termination may lose the last unsaved interval. Background time and the gap before relaunch are excluded.
 

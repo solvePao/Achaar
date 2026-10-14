@@ -13,7 +13,7 @@ struct UsageSummary {
     var lifetimeLabel: String { "Total time spent: \(hoursAndMinutes(lifetimeSeconds))" }
     var projectionLabel: String {
         let minutes = Int(max(0, projectedSeconds) / 60)
-        return "Expected time wasted by Dec 31: \(minutes / 1440)d \(minutes / 60 % 24)h \(minutes % 60)m"
+        return "Expected Time Loss\n\(minutes / 1440)d \(minutes / 60 % 24)h \(minutes % 60)m"
     }
 }
 

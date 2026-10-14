@@ -102,7 +102,7 @@ final class AchaarTests: XCTestCase {
             let formatted = UsageSummary(todaySeconds: 8159, lifetimeSeconds: 463259, projectedSeconds: 1_058_459)
             XCTAssertEqual(formatted.todayLabel, "Today: 2h 15m")
             XCTAssertEqual(formatted.lifetimeLabel, "Total time spent: 128h 40m")
-            XCTAssertEqual(formatted.projectionLabel, "Expected time wasted by Dec 31: 12d 6h 0m")
+            XCTAssertEqual(formatted.projectionLabel, "Expected Time Loss\n12d 6h 0m")
         }
     }
 
@@ -200,8 +200,6 @@ final class AchaarTests: XCTestCase {
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let first = AppSettings(defaults: defaults)
-        XCTAssertTrue(first.nativeScreens)
-        first.nativeScreens = false
         XCTAssertFalse(first.appLock)
         XCTAssertFalse(first.blockTrackers)
         XCTAssertTrue(first.confirmExternalLinks)
@@ -216,7 +214,6 @@ final class AchaarTests: XCTestCase {
         let second = AppSettings(defaults: defaults)
         XCTAssertEqual(second.appearance, .dark)
         XCTAssertEqual(second.startupTab, .messages)
-        XCTAssertFalse(second.nativeScreens)
         XCTAssertFalse(second.enhancements)
         XCTAssertTrue(second.blockTrackers)
         XCTAssertFalse(second.compatibilityScrolling)
