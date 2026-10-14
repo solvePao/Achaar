@@ -23,10 +23,12 @@ struct SettingsScreen: View {
                     }
                     Toggle("Navigation haptics", isOn: $settings.haptics)
                     Toggle("Compatibility scrolling", isOn: $settings.compatibilityScrolling)
+                    Toggle("Native screens (preview)", isOn: $settings.nativeScreens)
+                        .accessibilityIdentifier("settings.nativeScreens")
                     Toggle("Web enhancements", isOn: $settings.enhancements)
                         .accessibilityIdentifier("settings.enhancements")
                 } header: { Text("Appearance & navigation") } footer: {
-                    Text("Compatibility scrolling disables link previews and swipe-back gestures; use Back in the menu. Enhancements hide duplicate navigation only when recognized. Switch off to restore the website.")
+                    Text("Native screens render available website content with iOS controls. Unsupported controls open the website. Compatibility scrolling disables link previews and swipe-back gestures; use Back in the menu. Enhancements hide duplicate navigation only when recognized. Switch off to restore the website.")
                 }
                 Section {
                     Toggle("Keep Messages ready", isOn: $settings.keepMessagesReady)

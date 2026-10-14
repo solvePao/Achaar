@@ -32,6 +32,8 @@
 		1C7D4E5A7CB14627B820CECC /* UsageTracker in Sources */ = {isa = PBXBuildFile; fileRef = 33B68C9878794B01B0016AC0; };
 		B11950CA024C4C32B135EA72 /* UsageTracker in Sources */ = {isa = PBXBuildFile; fileRef = 33B68C9878794B01B0016AC0; };
 		8727EFC222924EB0991309C5 /* LaunchScreen in Resources */ = {isa = PBXBuildFile; fileRef = F385DCCB1B3E4888B7B88BDE; };
+		A11111111111111111111111 /* NativeInstagramScreen in Sources */ = {isa = PBXBuildFile; fileRef = A11111111111111111111112; };
+		A11111111111111111111113 /* NativeSurface in Resources */ = {isa = PBXBuildFile; fileRef = A11111111111111111111114; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -67,6 +69,8 @@
 		FC7B09CB8A0CDD9A9C2A3912 /* Achaar/Resources/Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Achaar/Resources/Assets.xcassets; sourceTree = SOURCE_ROOT; };
 		33B68C9878794B01B0016AC0 /* UsageTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Achaar/Core/Privacy/UsageTracker.swift; sourceTree = SOURCE_ROOT; };
 		F385DCCB1B3E4888B7B88BDE /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = Achaar/Resources/LaunchScreen.storyboard; sourceTree = SOURCE_ROOT; };
+		A11111111111111111111112 /* NativeInstagramScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Achaar/Features/Browser/NativeInstagramScreen.swift; sourceTree = SOURCE_ROOT; };
+		A11111111111111111111114 /* NativeSurface.js */ = {isa = PBXFileReference; lastKnownFileType = text; path = Achaar/Resources/Web/NativeSurface.js; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -130,6 +134,7 @@
 			children = (
 				8F84B6C87C96CAC3E069255A /* Achaar/Features/Browser/BrowserScreen.swift */,
 				36D09326EF85E77E2649451B /* Achaar/Features/Browser/WebViewHost.swift */,
+				A11111111111111111111112 /* NativeInstagramScreen.swift */,
 			);
 			name = Browser;
 			sourceTree = "<group>";
@@ -204,6 +209,7 @@
 			children = (
 				A1CDAADED93F8092DB7AC2FA /* Achaar/Resources/Web/Enhancements.css */,
 				14A1EC357A5C62F05A8F9503 /* Achaar/Resources/Web/Navigation.js */,
+				A11111111111111111111114 /* NativeSurface.js */,
 				C11981DCFB40412B44C59F68 /* Achaar/Resources/Web/TrackerRules.json */,
 			);
 			name = Web;
@@ -323,6 +329,7 @@
 				64C4071457166F921BDC7BD0 /* Achaar/Resources/PrivacyInfo.xcprivacy in Resources */,
 				AE77BF1AF9B4C58AB61ED2C8 /* Achaar/Resources/Web/Enhancements.css in Resources */,
 				614A57022A2C159B9A1BADEC /* Achaar/Resources/Web/Navigation.js in Resources */,
+				A11111111111111111111113 /* NativeSurface in Resources */,
 				84A076808FB875E04138736D /* Achaar/Resources/Web/TrackerRules.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -373,6 +380,7 @@
 				375F9648D148B9467702533D /* Achaar/Core/Web/InstagramRouting.swift in Sources */,
 				C02F88EA3D2A03D4484863FF /* Achaar/Features/Browser/BrowserScreen.swift in Sources */,
 				ADE78CF0734562684565C62D /* Achaar/Features/Browser/WebViewHost.swift in Sources */,
+				A11111111111111111111111 /* NativeInstagramScreen in Sources */,
 				27B7C23A652409B20DE39997 /* Achaar/Features/Settings/SettingsScreen.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

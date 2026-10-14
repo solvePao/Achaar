@@ -72,3 +72,19 @@ Record the iOS version, account language, verification date, and observed web fe
 Conversation follow-up, 2026-10-12: the diagnostic-free signed-in device check passed in `build/FinalConversationPhone.xcresult`. Native reaction tap, stationary hold, Back to inbox, empty composer focus, keyboard clearance and keyboard dismissal passed; final screenshots confirm a full-width composer without clipping. Generic unsigned compilation, 10 core tests and 52 web-adapter assertions passed. Actual reaction submission, sending attachments, phone/video calls and the earlier manual scrolling-crash acceptance remain unverified.
 
 Branding/audio follow-up: approved full-bleed icon, static branded launch and runtime loading/recovery screens installed. Foreground usage resets at local 3 AM and starts tracking with this version; 12 core tests and 59 synthetic web checks passed. Native Reel mute preference and visible-video enforcement compiled and installed; actual audio continuity awaits the user's manual test. See `BrandingUsageSound.md` for boundaries and build location.
+
+## Native screen mapping preview
+
+Live signed-in browser inspection covered the Home feed, story viewer, a post/comment detail screen, public-account search, the signed-in profile, inbox controls, and Reels. No replies, comments, messages, likes, or follows were submitted during inspection. Opening a story marks it viewed through Instagram's normal behavior. Account content and search history were not copied into repository fixtures.
+
+| Surface | Native mapping | Remaining boundary |
+| --- | --- | --- |
+| Home / profile / Explore | Rendered text, media previews, links, story entries, tabs, and available buttons | Structured feed cards, profile grid, and Explore previews; visual parity remains incomplete |
+| Stories | Story media when available, textarea draft editing, Like / Direct / Menu / Close controls | Browser-managed video and rich widgets open the website; sending not exercised |
+| Post comments | Avatar, author, body, separate timestamp, Reply / Like / translation, comment pagination, and composer or explicit web fallback | Rich editors use website; posting not exercised |
+| Search | Native editor updates the live search input; rendered result links become native controls | Result fetching remains website-driven; live result mapping test currently fails |
+| Messages | Rendered inbox links and available actions; ordinary textareas | Rich conversation editors and unsupported controls use website; sending not exercised |
+| Reels | Engagement buttons and native HTTPS video playback | Inspected Reels used blob video URLs and therefore need web playback |
+| Uploads / account settings / login | Explicit web fallback | No native replacement claimed |
+
+Verification: `node Scripts/verify-native.mjs` exercises native extraction and action safety fixtures; `node Scripts/verify-web.mjs` checks existing navigation behavior. Native UI tests are provided for a signed-in compatible iOS device. A generic iOS build and core tests do not establish live native action parity. Read-only tests on the connected iPhone verified native Home/web fallback, story fallback, profile, and comment rendering. A repeat comments run stayed on post detail, so live-feed navigation into comments is still inconsistent. Comment rows also have regression fixtures for offscreen text, icon-only controls, nested replies, and timestamps. Posting and sending remain untested. The installed iOS 18.6 simulator cannot run this iOS 26+ app.

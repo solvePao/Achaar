@@ -200,6 +200,8 @@ final class AchaarTests: XCTestCase {
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let first = AppSettings(defaults: defaults)
+        XCTAssertTrue(first.nativeScreens)
+        first.nativeScreens = false
         XCTAssertFalse(first.appLock)
         XCTAssertFalse(first.blockTrackers)
         XCTAssertTrue(first.confirmExternalLinks)
@@ -214,6 +216,7 @@ final class AchaarTests: XCTestCase {
         let second = AppSettings(defaults: defaults)
         XCTAssertEqual(second.appearance, .dark)
         XCTAssertEqual(second.startupTab, .messages)
+        XCTAssertFalse(second.nativeScreens)
         XCTAssertFalse(second.enhancements)
         XCTAssertTrue(second.blockTrackers)
         XCTAssertFalse(second.compatibilityScrolling)

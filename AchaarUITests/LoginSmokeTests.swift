@@ -2,9 +2,95 @@ import XCTest
 
 @MainActor
 final class LoginSmokeTests: XCTestCase {
+    func testNativeScreenAndWebFallback() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-browsingWasActive", "NO", "-nativeScreens", "YES"]
+        app.launch()
+        let native = app.otherElements["instagram.native"]
+        XCTAssertTrue(native.waitForExistence(timeout: 30))
+        XCTAssertTrue(app.buttons["native.tab.home"].exists)
+        XCTAssertTrue(app.buttons["native.tab.messages"].exists)
+        let capture = XCTAttachment(screenshot: app.screenshot())
+        capture.name = "Native Instagram screen"; capture.lifetime = .keepAlways; add(capture)
+        app.buttons["Screen options"].tap()
+        app.buttons["Open this screen in Instagram"].tap()
+        XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertFalse(native.exists)
+        let reference = XCTAttachment(screenshot: app.screenshot())
+        reference.name = "Original Instagram reference"; reference.lifetime = .keepAlways; add(reference)
+    }
+
+    func testNativeStoryViewer() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-browsingWasActive", "NO", "-nativeScreens", "YES"]
+        app.launch()
+        let story = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "native.story.")).firstMatch
+        XCTAssertTrue(story.waitForExistence(timeout: 30))
+        story.tap()
+        let close = app.buttons["Close story"]
+        let webClose = app.webViews.buttons["Close"]
+        let ready = NSPredicate { _, _ in close.exists || webClose.exists }
+        expectation(for: ready, evaluatedWith: app)
+        waitForExpectations(timeout: 20)
+        let capture = XCTAttachment(screenshot: app.screenshot())
+        capture.name = close.exists ? "Native story viewer" : "Story web fallback"; capture.lifetime = .keepAlways; add(capture)
+        if close.exists { close.tap() } else { webClose.tap() }
+        XCTAssertTrue(app.buttons["native.tab.home"].waitForExistence(timeout: 10))
+    }
+
+    func testNativeComments() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-browsingWasActive", "NO", "-nativeScreens", "YES"]
+        app.launch()
+        XCTAssertTrue(app.buttons["native.tab.home"].waitForExistence(timeout: 30))
+        let comment = app.buttons["Comment"].firstMatch
+        for _ in 0..<5 {
+            if comment.exists && comment.isHittable { break }
+            app.scrollViews["native.content"].swipeUp()
+        }
+        XCTAssertTrue(comment.isHittable)
+        comment.tap()
+        let viewAll = app.buttons.matching(NSPredicate(format: "label BEGINSWITH[c] %@ AND label CONTAINS[c] %@", "View all", "comments")).firstMatch
+        if viewAll.waitForExistence(timeout: 5) { viewAll.tap() }
+        else if !app.staticTexts["Comments"].exists && comment.waitForExistence(timeout: 5) {
+            for _ in 0..<4 { if comment.isHittable { break }; app.scrollViews["native.content"].swipeUp() }
+            if comment.isHittable { comment.tap() }
+        }
+        XCTAssertTrue(app.staticTexts["Comments"].waitForExistence(timeout: 20))
+        let capture = XCTAttachment(screenshot: app.screenshot())
+        capture.name = "Native comments"; capture.lifetime = .keepAlways; add(capture)
+    }
+
+    func testNativeProfileLayout() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-browsingWasActive", "NO", "-nativeScreens", "YES", "-startupTab", "home"]
+        app.launch()
+        let profile = app.buttons["native.tab.profile"]
+        XCTAssertTrue(profile.waitForExistence(timeout: 30)); profile.tap()
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label ==[c] %@", "Edit profile")).firstMatch.waitForExistence(timeout: 20))
+        let capture = XCTAttachment(screenshot: app.screenshot())
+        capture.name = "Native profile"; capture.lifetime = .keepAlways; add(capture)
+    }
+
+    func testNativeSearchLayout() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-browsingWasActive", "NO", "-nativeScreens", "YES", "-startupTab", "home"]
+        app.launch()
+        let search = app.buttons["native.tab.explore"]
+        XCTAssertTrue(search.waitForExistence(timeout: 30)); search.tap()
+        let open = app.buttons["native.search.open"]
+        if open.waitForExistence(timeout: 8) { open.tap() }
+        let field = app.textFields["native.search"]
+        XCTAssertTrue(field.waitForExistence(timeout: 15)); field.tap(); field.typeText("instagram")
+        let result = app.buttons.matching(NSPredicate(format: "label BEGINSWITH[c] %@", "instagram")).firstMatch
+        XCTAssertTrue(result.waitForExistence(timeout: 20))
+        let capture = XCTAttachment(screenshot: app.screenshot())
+        capture.name = "Native search results"; capture.lifetime = .keepAlways; add(capture)
+    }
+
     func testReelShareHasNoNativeOverlap() {
         let app = XCUIApplication()
-        app.launchArguments = ["-browsingWasActive", "NO"]
+        app.launchArguments = ["-browsingWasActive", "NO", "-nativeScreens", "NO"]
         app.launch()
         enableNativeNavigation(in: app)
         let reels = app.buttons["tab.reels"]
@@ -57,7 +143,7 @@ final class LoginSmokeTests: XCTestCase {
             throw XCTSkip("Set ACHAAR_TEST_THREAD to an existing test conversation display name.")
         }
         let app = XCUIApplication()
-        app.launchArguments = ["-browsingWasActive", "NO"]
+        app.launchArguments = ["-browsingWasActive", "NO", "-nativeScreens", "NO"]
         app.launch(); enableNativeNavigation(in: app)
         let messages = app.buttons["tab.messages"]
         XCTAssertTrue(messages.waitForExistence(timeout: 20))
@@ -104,7 +190,7 @@ final class LoginSmokeTests: XCTestCase {
 
     func testReferenceScreenCaptures() {
         let app = XCUIApplication()
-        app.launchArguments = ["-browsingWasActive", "NO"]
+        app.launchArguments = ["-browsingWasActive", "NO", "-nativeScreens", "NO"]
         app.launch()
         enableNativeNavigation(in: app)
         for tab in ["home", "messages", "explore", "reels", "profile"] {
@@ -129,7 +215,7 @@ final class LoginSmokeTests: XCTestCase {
 
     func testStoryViewerHasNoNativeOverlap() {
         let app = XCUIApplication()
-        app.launchArguments = ["-browsingWasActive", "NO"]
+        app.launchArguments = ["-browsingWasActive", "NO", "-nativeScreens", "NO"]
         app.launch()
         enableNativeNavigation(in: app)
         let home = app.buttons["tab.home"]
@@ -159,7 +245,7 @@ final class LoginSmokeTests: XCTestCase {
 
     func testInterruptedLaunchRecovery() {
         let app = XCUIApplication()
-        app.launchArguments = ["-browsingWasActive", "YES", "-browsingInterruptedStarts", "1"]
+        app.launchArguments = ["-browsingWasActive", "YES", "-browsingInterruptedStarts", "1", "-nativeScreens", "NO"]
         app.launch()
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Browsing stopped unexpectedly")).firstMatch.waitForExistence(timeout: 10))
         XCTAssertTrue(app.buttons["Retry"].exists)
@@ -171,7 +257,7 @@ final class LoginSmokeTests: XCTestCase {
 
     func testNativeProfileAndMessageShortcuts() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-browsingWasActive", "NO"]
+        app.launchArguments = ["-browsingWasActive", "NO", "-nativeScreens", "NO"]
         app.launch()
         enableNativeNavigation(in: app)
         let home = app.buttons["tab.home"]
@@ -229,7 +315,7 @@ final class LoginSmokeTests: XCTestCase {
 
     func testCreationThroughOriginalWebControl() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-browsingWasActive", "NO"]
+        app.launchArguments = ["-browsingWasActive", "NO", "-nativeScreens", "NO"]
         app.launch()
         enableNativeNavigation(in: app)
         let home = app.buttons["tab.home"]
@@ -261,7 +347,7 @@ final class LoginSmokeTests: XCTestCase {
 
     func testSignedInToolbarMapping() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-browsingWasActive", "NO"]
+        app.launchArguments = ["-browsingWasActive", "NO", "-nativeScreens", "NO"]
         app.launch()
         enableNativeNavigation(in: app)
         let home = app.buttons["tab.home"]
@@ -280,7 +366,7 @@ final class LoginSmokeTests: XCTestCase {
 
     func testSignedInScrollingAndNativeNavigation() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-browsingWasActive", "NO"]
+        app.launchArguments = ["-browsingWasActive", "NO", "-nativeScreens", "NO"]
         app.launch()
         let web = app.webViews.firstMatch
         XCTAssertTrue(web.waitForExistence(timeout: 20))
@@ -322,7 +408,7 @@ final class LoginSmokeTests: XCTestCase {
 
     func testLoginControlDoesNotCrashApp() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-browsingWasActive", "NO"]
+        app.launchArguments = ["-browsingWasActive", "NO", "-nativeScreens", "NO"]
         app.launch()
         XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 20))
         let loginButton = app.webViews.buttons.matching(NSPredicate(format: "label MATCHES[c] %@", "log\\s*in")).firstMatch
