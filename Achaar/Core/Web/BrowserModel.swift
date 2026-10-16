@@ -42,6 +42,7 @@ final class BrowserModel: NSObject {
     private(set) var webView: WKWebView
     private let protection = TrackerProtection()
     private var observations: [NSKeyValueObservation] = []
+    private var mobileUserAgent: String?
     private var hasStarted = false
     private var navigationRevision = 0
     private var pendingStartupProfile = false
@@ -92,7 +93,6 @@ final class BrowserModel: NSObject {
         configuration.allowsInlineMediaPlayback = true
         configuration.allowsPictureInPictureMediaPlayback = true
         configuration.mediaTypesRequiringUserActionForPlayback = []
-        // Use WebKit's genuine mobile user agent. No browser/device spoofing.
         configuration.applicationNameForUserAgent = "Achaar/1.0"
         configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
         webView = InstagramWebView(frame: .zero, configuration: configuration)
@@ -104,6 +104,7 @@ final class BrowserModel: NSObject {
     }
 
     private func attachWebView() {
+        webView.customUserAgent = selectedTab == .messages ? nil : mobileUserAgent
         webView.navigationDelegate = self
         webView.uiDelegate = self
         applyScrollingCompatibility(to: webView)
@@ -159,10 +160,16 @@ final class BrowserModel: NSObject {
     func start() async {
         guard !hasStarted else { return }
         hasStarted = true
+        if let agent = try? await webView.evaluateJavaScript("navigator.userAgent") as? String {
+            mobileUserAgent = InstagramRouting.mobileSafariUserAgent(from: agent,
+                version: ProcessInfo.processInfo.operatingSystemVersion)
+            webView.customUserAgent = mobileUserAgent
+        }
         await updateProtection(reload: false)
         await maintainCache()
         usingMessagesPage = settings.keepMessagesReady && selectedTab == .messages
         pendingStartupProfile = selectedTab == .profile
+        webView.customUserAgent = selectedTab == .messages ? nil : mobileUserAgent
         load(path: selectedTab.path ?? "/")
     }
 
@@ -181,6 +188,16 @@ final class BrowserModel: NSObject {
         navigationRevision += 1
         let previous = selectedTab
         if settings.haptics && previous != tab { UISelectionFeedbackGenerator().selectionChanged() }
+        // Keep Direct on its existing WebKit renderer. In single-view mode,
+        // crossing this boundary needs a document load, not an SPA transition.
+        let requestedUserAgent = tab == .messages ? nil : mobileUserAgent
+        if webView.customUserAgent != requestedUserAgent {
+            selectedTab = tab
+            webView.customUserAgent = requestedUserAgent
+            pendingStartupProfile = tab == .profile
+            load(path: tab.path ?? "/")
+            return
+        }
         if tab == .profile {
             perform(.profile)
         } else if let path = tab.path {
@@ -581,6 +598,7 @@ extension BrowserModel: WKUIDelegate {
         guard popup == nil else { notice = "Close the current Instagram window before opening another."; return nil }
         configuration.websiteDataStore = self.webView.configuration.websiteDataStore
         let child = InstagramWebView(frame: .zero, configuration: configuration)
+        child.customUserAgent = webView.customUserAgent
         child.navigationDelegate = self
         child.uiDelegate = self
         applyScrollingCompatibility(to: child)

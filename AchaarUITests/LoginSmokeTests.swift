@@ -2,6 +2,66 @@ import XCTest
 
 @MainActor
 final class LoginSmokeTests: XCTestCase {
+    func testFeedCommentsOnDevice() {
+        continueAfterFailure = false
+        XCUIDevice.shared.orientation = .portrait
+        let app = XCUIApplication()
+        app.launchArguments = ["-browsingWasActive", "NO", "-enhancements", "YES", "-startupTab", "home"]
+        app.launch()
+        XCUIDevice.shared.orientation = .portrait
+        XCTAssertTrue(app.webViews.firstMatch.waitForExistence(timeout: 20))
+        let infoOK = app.webViews.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "OK")).firstMatch
+        if infoOK.waitForExistence(timeout: 5) { infoOK.tap() }
+        for _ in 0..<4 {
+            let notNow = app.webViews.buttons["Not now"].firstMatch
+            let close = app.webViews.descendants(matching: .any).matching(identifier: "Close").firstMatch
+            if notNow.exists && notNow.isHittable { notNow.tap() }
+            else if close.exists && close.isHittable { close.tap() }
+            else { break }
+        }
+        let home = app.buttons["tab.home"]
+        XCTAssertTrue(home.waitForExistence(timeout: 20), "Mobile Safari layout must retain Achaar's native tabs.")
+        let web = app.webViews.firstMatch
+        for attempt in 0..<2 {
+            let comments = app.webViews.buttons.matching(NSPredicate(format: "label MATCHES[c] %@", "comments?"))
+            XCTAssertTrue(comments.firstMatch.waitForExistence(timeout: 20))
+            var visibleComment: XCUIElement?
+            for _ in 0..<8 {
+                visibleComment = comments.allElementsBoundByIndex.first {
+                    $0.isHittable && $0.frame.midY > web.frame.minY + 70 && $0.frame.midY < web.frame.maxY - 130
+                }
+                if visibleComment != nil { break }
+                web.swipeUp()
+            }
+            guard let comment = visibleComment else { XCTFail("No unobscured feed comment control"); return }
+            comment.tap()
+            let heading = app.webViews.staticTexts["Comments"].firstMatch
+            let opened = heading.waitForExistence(timeout: 15)
+            let capture = XCTAttachment(screenshot: app.screenshot())
+            capture.name = "Feed comments \(attempt + 1)"; capture.lifetime = .keepAlways; add(capture)
+            XCTAssertTrue(opened, "Comment tap must open the mobile Comments page.")
+            expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: home)
+            waitForExpectations(timeout: 5)
+            XCTAssertFalse(app.buttons["More"].exists)
+            XCTAssertFalse(app.buttons["Create"].exists)
+            XCTAssertFalse(app.buttons["Activity"].exists)
+            let input = app.webViews.textViews.firstMatch
+            XCTAssertTrue(input.waitForExistence(timeout: 10))
+            input.tap()
+            XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+            XCTAssertLessThanOrEqual(input.frame.maxY, app.keyboards.firstMatch.frame.minY + 1)
+            let keyboard = XCTAttachment(screenshot: app.screenshot())
+            keyboard.name = "Comments keyboard \(attempt + 1)"; keyboard.lifetime = .keepAlways; add(keyboard)
+            let back = app.webViews.descendants(matching: .any).matching(NSPredicate(format: "label MATCHES[c] %@", "(go )?back")).firstMatch
+            XCTAssertTrue(back.exists)
+            back.tap()
+            expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: heading)
+            waitForExpectations(timeout: 10)
+            XCTAssertFalse(app.keyboards.firstMatch.exists)
+            XCTAssertTrue(home.waitForExistence(timeout: 10))
+        }
+    }
+
     func testReelShareHasNoNativeOverlap() {
         let app = XCUIApplication()
         app.launchArguments = ["-browsingWasActive", "NO"]

@@ -5,6 +5,17 @@ import WebKit
 #endif
 
 final class AchaarTests: XCTestCase {
+    func testMobileSafariCompatibilityPreservesWebKitIdentity() {
+        let engine = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko)"
+        let version = OperatingSystemVersion(majorVersion: 27, minorVersion: 0, patchVersion: 1)
+        let expected = engine + " Version/27.0 Mobile/15E148 Safari/604.1"
+        XCTAssertEqual(InstagramRouting.mobileSafariUserAgent(from: engine + " Mobile/15E148 Achaar/1.0", version: version), expected)
+        XCTAssertEqual(InstagramRouting.mobileSafariUserAgent(from: expected, version: version), expected,
+                       "Reapplying compatibility must not duplicate browser tokens.")
+        XCTAssertNil(InstagramRouting.mobileSafariUserAgent(from: "Mozilla/5.0 (Macintosh) AppleWebKit/605.1.15", version: version))
+        XCTAssertNil(InstagramRouting.mobileSafariUserAgent(from: "iPhone unknown engine", version: version))
+    }
+
     @MainActor func testUsageResetsAtThreeAMAndSurvivesRelaunch() {
         let name = "usage.tests." + UUID().uuidString
         let defaults = UserDefaults(suiteName: name)!

@@ -67,6 +67,11 @@
     });
     const visible = node => !!node && node.getClientRects().length > 0
         && getComputedStyle(node).visibility !== "hidden" && getComputedStyle(node).display !== "none";
+    // Mobile Comments can replace Home's content without changing its URL.
+    // Its own Back control and composer need the same clear viewport as sheets.
+    const commentsOpen = () => [...document.querySelectorAll("h1, h2, [role='heading']")]
+        .some(node => visible(node) && (node.textContent || "").trim().toLowerCase() === "comments")
+        && [...document.querySelectorAll('textarea, [contenteditable="true"][role="textbox"]')].some(visible);
     const modalOpen = () => [...document.querySelectorAll('[role="dialog"], [aria-modal="true"]')].some(visible);
     const restore = () => {
         document.querySelectorAll(".achaar-verified-bottom-navigation").forEach(node =>
@@ -388,7 +393,7 @@
         // Website sheets own the whole phone viewport. Keep the verified web
         // navigation hidden, but remove native chrome until the sheet closes.
         if (modalOpen()) { reportMode("modal"); return; }
-        const immersive = location.pathname.startsWith("/stories/") || /^\/direct\/t\//.test(location.pathname) || !!conversationEditor();
+        const immersive = location.pathname.startsWith("/stories/") || /^\/direct\/t\//.test(location.pathname) || !!conversationEditor() || commentsOpen();
         if (immersive) { reportMode("immersive"); if (conversationPane?.isConnected) reportMessageLayout(); }
         if (verified) {
             if (isNavigation(verified)) {
@@ -415,7 +420,7 @@
         for (const link of sameOriginLinks(document)) {
             if (new URL(link.href).pathname !== "/") continue;
             let ancestor = link.parentElement;
-            for (let depth = 0; ancestor && depth < 8; depth++, ancestor = ancestor.parentElement) {
+            for (let depth = 0; ancestor && depth < 16; depth++, ancestor = ancestor.parentElement) {
                 if (ancestor === document.body || ancestor === document.documentElement) break;
                 candidates.add(ancestor);
             }
