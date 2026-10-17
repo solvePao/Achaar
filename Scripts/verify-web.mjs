@@ -45,7 +45,7 @@ function fixture({ paths = ['/', '/explore/', '/direct/inbox/'], path = '/', top
     const window = { webkit: { messageHandlers: { achaar: { postMessage: data => events.push(data) } } } };
     window.top = window;
     vm.runInNewContext(source, {
-        window, document, location, innerHeight: 800, innerWidth: 390, URL, getComputedStyle: () => ({ position }),
+        window, document, location, innerHeight: 800, innerWidth: 390, URL, getComputedStyle: node => ({ position: node.position || position }),
         history: { pushState() {}, replaceState() {} },
         MutationObserver: class { constructor(fn) { observer = fn; } observe() {} },
         addEventListener() {}, requestAnimationFrame: fn => fn()
@@ -119,6 +119,18 @@ assert(popoverClasses.has('achaar-navigation-popover'), 'Menus above hidden navi
 popover.getBoundingClientRect = () => ({ top: 720, bottom: 744, height: 24 });
 menuBar.mutate();
 assert.equal(popoverClasses.size, 0, 'Reused controls in the strip return to hidden state');
+// Safari's mobile navigation nests the fixed strip deeper than desktop's.
+const deepMobile = fixture({semantic:false, position:'static', paths:['/', '/explore/', '/reels/', '/direct/inbox/']});
+let parent = deepMobile.nav;
+for (let depth = 0; depth < 10; depth++) {
+    const wrapper = {...deepMobile.nav, position:depth === 9 ? 'fixed' : 'static', parentElement:null};
+    parent.parentElement = wrapper;
+    parent = wrapper;
+}
+deepMobile.window.AchaarWeb.setEnhanced(true);
+assert(deepMobile.classes.has('achaar-verified-bottom-navigation'), 'Deep mobile navigation is recognized at its fixed ancestor');
+deepMobile.window.AchaarWeb.setEnhanced(false);
+assert.equal(deepMobile.classes.size, 0, 'Deep mobile navigation remains reversible');
 const content = fixture({ semantic: false, position: 'static', paths: ['/', '/explore/', '/reels/', '/direct/inbox/'] });
 content.window.AchaarWeb.setEnhanced(true);
 assert.equal(content.classes.size, 0, 'Content link clusters are never hidden');
@@ -188,6 +200,18 @@ story.window.AchaarWeb.setEnhanced(true);
 assert.equal(story.events.at(-1).value, 'immersive', 'Story viewer hides native chrome without hiding story actions');
 story.location.pathname = '/'; story.mutate();
 assert.equal(story.events.at(-1).value, 'native', 'Closing a story restores native navigation');
+const mobileComments = fixture();
+const originalCommentQuery = mobileComments.document.querySelectorAll;
+let commentsVisible = true;
+mobileComments.document.querySelectorAll = selector => {
+    if (selector === "h1, h2, [role='heading']") return commentsVisible ? [{textContent:'Comments', getClientRects:() => [{}]}] : [];
+    if (selector === 'textarea, [contenteditable="true"][role="textbox"]') return commentsVisible ? [{getClientRects:() => [{}]}] : [];
+    return originalCommentQuery(selector);
+};
+mobileComments.window.AchaarWeb.setEnhanced(true);
+assert.equal(mobileComments.events.at(-1).value, 'immersive', 'Comments on the unchanged Home route hide native header actions');
+commentsVisible = false; mobileComments.mutate();
+assert.equal(mobileComments.events.at(-1).value, 'native', 'Closing Comments restores native tabs and header actions');
 const conversation = fixture({path: '/direct/t/123/'});
 conversation.window.AchaarWeb.setEnhanced(true);
 assert.equal(conversation.events.at(-1).value, 'immersive', 'Conversation composer has no overlapping native tabs');

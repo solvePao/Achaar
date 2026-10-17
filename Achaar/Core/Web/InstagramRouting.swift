@@ -71,6 +71,19 @@ enum WebAction: String, CaseIterable, Identifiable {
 enum InstagramRouting {
     static let home = URL(string: "https://www.instagram.com/")!
 
+    // Instagram's embedded-browser variant opens a desktop post dialog whose
+    // comment column is hidden on phones. Safari tokens select its mobile flow;
+    // retain the actual WebKit platform/engine rather than hard-coding an OS.
+    static func mobileSafariUserAgent(from userAgent: String, version: OperatingSystemVersion) -> String? {
+        guard userAgent.contains("AppleWebKit/"),
+              ["iPhone", "iPad", "iPod"].contains(where: userAgent.contains) else { return nil }
+        let mobile = userAgent.range(of: #"\bMobile/\S+"#, options: .regularExpression)
+            .map { String(userAgent[$0]) } ?? "Mobile/15E148"
+        let base = userAgent.replacingOccurrences(of: #"\s(?:Version|Mobile|Safari|Achaar)/\S+"#,
+                                                  with: "", options: .regularExpression)
+        return base + " Version/\(version.majorVersion).\(version.minorVersion) " + mobile + " Safari/604.1"
+    }
+
     static func isInstagram(_ url: URL?) -> Bool {
         guard let url, url.scheme?.lowercased() == "https", url.user == nil, url.password == nil,
               url.port == nil || url.port == 443, let host = url.host?.lowercased() else { return false }

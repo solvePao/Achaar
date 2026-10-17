@@ -1,0 +1,23 @@
+name: Shared core coverage
+on:
+  push:
+    branches: [main, testflight]
+  pull_request:
+    branches: [main, testflight]
+permissions:
+  contents: read
+jobs:
+  coverage:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test shared production code and web adapter
+        run: bash Scripts/test-coverage.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: core-coverage
+          path: build/coverage.*/

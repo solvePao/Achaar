@@ -27,7 +27,8 @@ Verification uses no Instagram account credentials and does not publish posts or
 | Fully native feed cards/message bubbles and exhaustive Instagram API mapping | Unavailable within the web-only constraint; Instagram renders these workflows |
 | Persistent authenticated login, logout, 2FA and challenges | Web workflow preserved; account/device validation pending |
 | Feed, stories, search, Explore, profiles and Reels | Web workflow preserved; account/device validation pending |
-| Likes, comments, saves, follows and account settings | Web workflow preserved; account/device validation pending |
+| Home-feed comments | Verified on iPhone 16 / iOS 27.0.1, 2026-10-15: mobile Comments screen, repeated open/Back, keyboard and unobscured composer. No comments typed or posted. Safari-compatible browser identity replaces the broken embedded-browser post preview. |
+| Likes, saves, follows and account settings | Web workflow preserved; account/device validation pending |
 | Story viewer reply/send controls and closing the viewer | Device UI test passed on iPhone 16, iOS 27.0.1, 2026-10-11; native tabs and More hide, then tabs return on close; nothing sent |
 | Inbox and Search phone-width layout | Device captures confirm the desktop gutter is removed and Requests remains visible; search result workflows remain web-controlled |
 | Reels phone-width media and author layout | Device capture verified; existing web interaction controls remain active; interaction mutations not tested |
